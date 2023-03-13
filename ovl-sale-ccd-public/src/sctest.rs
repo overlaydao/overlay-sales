@@ -312,6 +312,7 @@ mod test_ovlteam {
 
     #[concordium_test]
     fn test_ovl_claim() {
+        let mut logger = TestLogger::init();
         let mut state_builder = TestStateBuilder::new();
         let mut state = initial_state(&mut state_builder, None, None);
         state.status = SaleStatus::Fixed;
@@ -334,9 +335,19 @@ mod test_ovlteam {
                 .expect_report("Failed to calculate the date"),
             &[],
         );
-        let ret = contract_ovl_claim(&ctx, &mut host);
-        // println!("{ret:?}");
+
+        let ret = contract_ovl_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
+
+        claim_eq!(
+            logger.logs[0],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: OVL_TEAM_ADDR,
+                amount: 200,
+                inc: 1,
+            })),
+            "Something wrong with event emitted"
+        );
 
         let state = host.state();
         claim_eq!(
@@ -387,7 +398,8 @@ mod test_ovlteam {
                 .expect_report("Failed to calculate the date"),
             &[],
         );
-        let ret = contract_ovl_claim(&ctx, &mut host);
+        let mut logger = TestLogger::init();
+        let ret = contract_ovl_claim(&ctx, &mut host, &mut logger);
         // println!("{ret:?}");
         claim!(ret.is_ok(), "Results in rejection");
         // claim_eq!(
@@ -628,6 +640,7 @@ mod test_user {
         .ok();
         let saleinfo = SaleInfo::new(5_000_000, 200.into(), 100, 50).ok();
 
+        let mut logger = TestLogger::init();
         let mut state_builder = TestStateBuilder::new();
         let mut state = initial_state(&mut state_builder, schedule, saleinfo);
         state.status = SaleStatus::Fixed;
@@ -661,30 +674,109 @@ mod test_user {
         ctx.set_sender(Address::from(accounts[0]));
 
         ctx.set_metadata_slot_time(Timestamp::from_timestamp_millis(60));
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        claim_eq!(logger.logs.len(), 1, "Only one event should be logged");
+        claim_eq!(
+            logger.logs[0],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[0]),
+                amount: 45,
+                inc: 1,
+            })),
+            "Something wrong with event emitted"
+        );
+
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
+        claim_eq!(logger.logs.len(), 2, "Two events should be logged");
+        claim_eq!(
+            logger.logs[1],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[0]),
+                amount: 0,
+                inc: 1,
+            })),
+            "Something wrong with event emitted"
+        );
 
         ctx.set_metadata_slot_time(Timestamp::from_timestamp_millis(70));
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        claim_eq!(logger.logs.len(), 3, "Three events should be logged");
+        claim_eq!(
+            logger.logs[2],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[0]),
+                amount: 72,
+                inc: 2,
+            })),
+            "Something wrong with event emitted"
+        );
+
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
+        claim_eq!(logger.logs.len(), 4, "Four events should be logged");
+        claim_eq!(
+            logger.logs[3],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[0]),
+                amount: 0,
+                inc: 2,
+            })),
+            "Something wrong with event emitted"
+        );
 
         ctx.set_metadata_slot_time(Timestamp::from_timestamp_millis(80));
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        claim_eq!(
+            logger.logs[4],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[0]),
+                amount: 63,
+                inc: 3,
+            })),
+            "Something wrong with event emitted"
+        );
+
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
+        claim_eq!(
+            logger.logs[5],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[0]),
+                amount: 0,
+                inc: 3,
+            })),
+            "Something wrong with event emitted"
+        );
 
         ctx.set_metadata_slot_time(Timestamp::from_timestamp_millis(90));
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
+        claim_eq!(
+            logger.logs[6],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[0]),
+                amount: 0,
+                inc: 3,
+            })),
+            "Something wrong with event emitted"
+        );
 
         ctx.set_sender(Address::from(accounts[1]));
         ctx.set_metadata_slot_time(Timestamp::from_timestamp_millis(100));
-        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host);
+        let ret: ContractResult<()> = contract_user_claim(&ctx, &mut host, &mut logger);
         claim!(ret.is_ok(), "Results in rejection");
+        claim_eq!(
+            logger.logs[7],
+            to_bytes(&OvlSaleEvent::Claim(ClaimEvent {
+                to: Address::from(accounts[1]),
+                amount: 180,
+                inc: 3,
+            })),
+            "Something wrong with event emitted"
+        );
     }
 }

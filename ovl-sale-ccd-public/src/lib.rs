@@ -3,12 +3,13 @@ mod sctest;
 mod state;
 mod view;
 
-use collections::BTreeMap;
 use concordium_cis2::{
     AdditionalData, OnReceivingCis2Params, Receiver, TokenIdUnit, Transfer, TransferParams,
 };
-use concordium_std::*;
-use sale_utils::{PUBLIC_RIDO_FEE, PUBLIC_RIDO_FEE_BBB, PUBLIC_RIDO_FEE_OVL};
+use concordium_std::{collections::BTreeMap, *};
+use sale_utils::{
+    ClaimEvent, OvlSaleEvent, PUBLIC_RIDO_FEE, PUBLIC_RIDO_FEE_BBB, PUBLIC_RIDO_FEE_OVL,
+};
 use state::{State, *};
 
 ///
@@ -261,11 +262,13 @@ fn contract_whitelisting<S: HasStateApi>(
     contract = "pub_rido_ccd",
     name = "ovlClaim",
     error = "ContractError",
-    mutable
+    mutable,
+    enable_logger
 )]
 fn contract_ovl_claim<S: HasStateApi>(
     ctx: &impl HasReceiveContext,
     host: &mut impl HasHost<State<S>, StateApiType = S>,
+    logger: &mut impl HasLogger,
 ) -> ContractResult<()> {
     ensure!(
         ctx.sender().matches_account(&ctx.owner()),
@@ -304,6 +307,13 @@ fn contract_ovl_claim<S: HasStateApi>(
     if inc > state.ovl_claimed_inc {
         state.ovl_claimed_inc = inc;
     }
+
+    // Log event
+    logger.log(&OvlSaleEvent::Claim(ClaimEvent {
+        to: ctx.sender(),
+        amount: amount.0,
+        inc,
+    }))?;
 
     if amount.0 > 0 {
         let to = match state.addr_ovl {
@@ -346,11 +356,13 @@ fn contract_ovl_claim<S: HasStateApi>(
     contract = "pub_rido_ccd",
     name = "bbbClaim",
     error = "ContractError",
-    mutable
+    mutable,
+    enable_logger
 )]
 fn contract_bbb_claim<S: HasStateApi>(
     ctx: &impl HasReceiveContext,
     host: &mut impl HasHost<State<S>, StateApiType = S>,
+    logger: &mut impl HasLogger,
 ) -> ContractResult<()> {
     ensure!(
         ctx.sender().matches_account(&ctx.owner()),
@@ -389,6 +401,13 @@ fn contract_bbb_claim<S: HasStateApi>(
     if inc > state.bbb_claimed_inc {
         state.bbb_claimed_inc = inc;
     }
+
+    // Log event
+    logger.log(&OvlSaleEvent::Claim(ClaimEvent {
+        to: ctx.sender(),
+        amount: amount.0,
+        inc,
+    }))?;
 
     if amount.0 > 0 {
         let to = match state.addr_bbb {
@@ -840,11 +859,13 @@ fn contract_user_quit<S: HasStateApi>(
     contract = "pub_rido_ccd",
     name = "userClaim",
     error = "ContractError",
-    mutable
+    mutable,
+    enable_logger
 )]
 fn contract_user_claim<S: HasStateApi>(
     ctx: &impl HasReceiveContext,
     host: &mut impl HasHost<State<S>, StateApiType = S>,
+    logger: &mut impl HasLogger,
 ) -> ContractResult<()> {
     let state = host.state_mut();
 
@@ -881,6 +902,13 @@ fn contract_user_claim<S: HasStateApi>(
     if inc > user_state.claimed_inc {
         state.increment_user_claimed(&user, inc)?;
     }
+
+    // Log event
+    logger.log(&OvlSaleEvent::Claim(ClaimEvent {
+        to: user,
+        amount: amount.0,
+        inc,
+    }))?;
 
     if amount.0 > 0 {
         let to = match user {

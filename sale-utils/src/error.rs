@@ -1,6 +1,7 @@
 use concordium_cis2::Cis2Error;
 use concordium_std::{
-    num, CallContractError, ParseError, Reject, SchemaType, Serialize, UnwrapAbort, UpgradeError,
+    num, CallContractError, LogError, ParseError, Reject, SchemaType, Serialize, UnwrapAbort,
+    UpgradeError,
 };
 use core::num::TryFromIntError;
 
@@ -41,7 +42,9 @@ pub enum CustomContractError {
     NotSetTge,                             //
     NotSetProjectToken,                    //
     Inappropriate,                         //
-    DisabledForNow,                        //
+    DisabledForNow,                        //30
+    LogFull,                               //
+    LogMalformed,                          //
 }
 
 impl From<CustomContractError> for ContractError {
@@ -82,5 +85,14 @@ impl From<TryFromIntError> for CustomContractError {
     #[inline(always)]
     fn from(_: TryFromIntError) -> Self {
         Self::OverflowError
+    }
+}
+
+impl From<LogError> for CustomContractError {
+    fn from(le: LogError) -> Self {
+        match le {
+            LogError::Full => Self::LogFull,
+            LogError::Malformed => Self::LogMalformed,
+        }
     }
 }
