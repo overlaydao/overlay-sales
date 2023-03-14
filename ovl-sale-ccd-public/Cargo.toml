@@ -3,7 +3,7 @@ authors = ["daratao"]
 description = "overlay sale for usdc pair"
 edition = "2021"
 name = "ovl-sale-ccd-public"
-version = "0.2.2"
+version = "0.2.4"
 
 [features]
 crypto-primitives = ["concordium-std/crypto-primitives"]
@@ -13,7 +13,7 @@ std = ["concordium-std/std", "concordium-cis2/std"]
 [dependencies]
 concordium-cis2 = "3.0.0"
 concordium-std = "6.0.0"
-sale-utils = {path = "../sale-utils"}
+sale-utils = {version = "0.2", path = "../sale-utils"}
 
 [lib]
 crate-type = ["cdylib", "rlib"]
