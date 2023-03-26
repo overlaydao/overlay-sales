@@ -613,7 +613,7 @@ fn contract_upgrade<S: HasStateApi>(
         }
     }
 
-    ensure!(legit > 0, ContractError::Unauthorized);
+    ensure!(legit > 1, ContractError::Unauthorized);
 
     // Trigger the upgrade.
     host.upgrade(params.module)?;

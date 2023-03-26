@@ -139,11 +139,23 @@ mod test_ovlteam {
         196, 191, 226, 185, 139, 83, 165, 99, 56, 180, 46, 57,
     ]);
 
-    const SIGNATURE_TRANSFER: SignatureEd25519 = SignatureEd25519([
+    const KEY2: PublicKeyEd25519 = PublicKeyEd25519([
+        105, 229, 243, 235, 166, 114, 145, 226, 213, 241, 2, 3, 243, 211, 212, 201, 84, 45, 75, 2,
+        204, 209, 86, 162, 41, 240, 250, 255, 243, 232, 27, 167,
+    ]);
+
+    const SIGNATURE1: SignatureEd25519 = SignatureEd25519([
         208, 226, 169, 210, 105, 81, 90, 239, 139, 19, 105, 67, 87, 156, 232, 198, 5, 116, 105, 32,
         200, 252, 173, 118, 124, 24, 12, 119, 133, 41, 47, 25, 16, 127, 129, 83, 91, 72, 238, 117,
         119, 167, 67, 153, 169, 227, 159, 134, 78, 14, 204, 115, 185, 40, 168, 136, 94, 67, 33, 35,
         121, 141, 206, 6,
+    ]);
+
+    const SIGNATURE2: SignatureEd25519 = SignatureEd25519([
+        121, 71, 126, 175, 214, 63, 25, 78, 197, 17, 194, 249, 155, 198, 245, 13, 255, 223, 188,
+        46, 0, 147, 114, 103, 42, 156, 240, 141, 178, 168, 67, 88, 153, 178, 204, 236, 158, 1, 134,
+        176, 154, 122, 18, 226, 252, 19, 74, 132, 211, 105, 227, 54, 250, 17, 59, 180, 18, 173, 84,
+        101, 33, 244, 217, 13,
     ]);
 
     #[concordium_test]
@@ -422,7 +434,7 @@ mod test_ovlteam {
     }
 
     #[concordium_test]
-    fn test_regist_keys() {
+    fn test_contract_upgrade() {
         let mut state_builder = TestStateBuilder::new();
         let mut state = initial_state(&mut state_builder, None, None);
         let mut host = TestHost::new(state, state_builder);
@@ -433,7 +445,11 @@ mod test_ovlteam {
             account: OVL_TEAM_ACC,
             public_key: KEY1,
         };
-        let parameter = RegisterPublicKeyParams(vec![key1]);
+        let key2 = RegisterPublicKeyParam {
+            account: PJ_ADMIN_ACC,
+            public_key: KEY2,
+        };
+        let parameter = RegisterPublicKeyParams(vec![key1, key2]);
         let params_bytes = to_bytes(&parameter);
 
         let ctx = receive_ctx(
@@ -442,11 +458,11 @@ mod test_ovlteam {
             Timestamp::from_timestamp_millis(5),
             &params_bytes,
         );
-
         let _: ContractResult<()> = contract_regist_updkeys(&ctx, &mut host);
 
         let mut signature_map = BTreeSet::new();
-        signature_map.insert((OVL_TEAM_ACC, SIGNATURE_TRANSFER));
+        signature_map.insert((OVL_TEAM_ACC, SIGNATURE1));
+        signature_map.insert((PJ_ADMIN_ACC, SIGNATURE2));
 
         let permit_param = UpgradeParams {
             module: ModuleReference::from([9u8; 32]),
