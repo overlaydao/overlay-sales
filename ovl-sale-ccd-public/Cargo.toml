@@ -7,7 +7,7 @@ version = "0.2.4"
 
 [features]
 crypto-primitives = ["concordium-std/crypto-primitives"]
-default = ["std"]
+default = ["std", "crypto-primitives"]
 std = ["concordium-std/std", "concordium-cis2/std"]
 
 [dependencies]

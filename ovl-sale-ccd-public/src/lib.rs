@@ -6,7 +6,7 @@ mod view;
 use concordium_cis2::{
     AdditionalData, OnReceivingCis2Params, Receiver, TokenIdUnit, Transfer, TransferParams,
 };
-use concordium_std::{collections::BTreeMap, *};
+use concordium_std::{collections::BTreeMap, collections::BTreeSet, *};
 use sale_utils::{
     ClaimEvent, OvlSaleEvent, PUBLIC_RIDO_FEE, PUBLIC_RIDO_FEE_BBB, PUBLIC_RIDO_FEE_OVL,
 };
@@ -509,6 +509,181 @@ fn contract_change_pjtoken<S: HasStateApi>(
 
     let addr: ContractAddress = ctx.parameter_cursor().get()?;
     host.state_mut().project_token = Some(addr);
+
+    Ok(())
+}
+
+// -------------------------------------------
+
+/// Part of the parameter type for PermitMessage.
+/// Only Upgrade should be acceptable for now.
+#[derive(Debug, Serialize, SchemaType, Clone)]
+enum PermitPayload {
+    Upgrade,
+}
+
+/// Part of the parameter type for the UpgradeParams.
+/// Specifies the message that is signed.
+#[derive(SchemaType, Serialize, Debug)]
+struct PermitMessage {
+    /// The contract_address that the signature is intended for.
+    contract_address: ContractAddress,
+    /// The entry_point that the signature is intended for.
+    entry_point: OwnedEntrypointName,
+    /// Enum to identify the payload.
+    payload: PermitPayload,
+    /// A timestamp to make signatures expire.
+    timestamp: Timestamp,
+}
+
+#[derive(Debug, Serialize, SchemaType)]
+struct UpgradeParams {
+    /// The new module reference.
+    module: ModuleReference,
+    /// Optional entrypoint to call in the new module after upgrade.
+    migrate: Option<(OwnedEntrypointName, OwnedParameter)>,
+    /// Signatures of those who approve upgrading the contract.
+    signatures: BTreeSet<(AccountAddress, SignatureEd25519)>,
+    /// Message that was signed.
+    message: PermitMessage,
+}
+
+/// Upgrade contract.
+/// Even the contract owner cannot be executed at one's own discretion.
+/// Note: should not be called except in case of emergency.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - The sender is not the contract owner.
+/// - Fails to parse parameter
+/// - The message was intended for a different contract.
+/// - The message was intended for a different `entry_point`.
+/// - The message is expired.
+/// - No multiple valid signatures.
+
+#[receive(
+    contract = "pub_rido_ccd",
+    name = "upgrade",
+    mutable,
+    crypto_primitives,
+    parameter = "UpgradeParams"
+)]
+fn contract_upgrade<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+    crypto_primitives: &impl HasCryptoPrimitives,
+) -> ContractResult<()> {
+    // Authorize the sender.
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    // Parse the parameter.
+    let params: UpgradeParams = ctx.parameter_cursor().get()?;
+
+    // Check that the message was intended for this contract.
+    ensure_eq!(
+        params.message.contract_address,
+        ctx.self_address(),
+        CustomContractError::WrongContract.into()
+    );
+
+    // Check signature is not expired.
+    ensure!(
+        params.message.timestamp > ctx.metadata().slot_time(),
+        CustomContractError::Expired.into()
+    );
+
+    // Calculate the message hash.
+    let message_hash = crypto_primitives
+        .hash_sha2_256(&to_bytes(&params.message))
+        .0;
+
+    let mut legit = 0;
+    for d in params.signatures {
+        let entry = host
+            .state_mut()
+            .upgraders
+            .entry(d.0)
+            .occupied_or(CustomContractError::NoPublicKey)?;
+
+        if crypto_primitives.verify_ed25519_signature(*entry, d.1, &message_hash) {
+            legit += 1;
+        }
+    }
+
+    ensure!(legit > 0, ContractError::Unauthorized);
+
+    // Trigger the upgrade.
+    host.upgrade(params.module)?;
+    // Call a migration function if provided.
+    if let Some((func, parameter)) = params.migrate {
+        host.invoke_contract_raw(
+            &ctx.self_address(),
+            parameter.as_parameter(),
+            func.as_entrypoint_name(),
+            Amount::zero(),
+        )?;
+    }
+    Ok(())
+}
+
+/// Part of the parameter type for the contract function `registerPublicKeys`.
+/// Takes the account and the public key that should be linked.
+#[derive(Debug, Serialize, SchemaType)]
+pub struct RegisterPublicKeyParam {
+    /// Account that a public key will be registered to.
+    account: AccountAddress,
+    /// The public key that should be linked to the above account.
+    public_key: PublicKeyEd25519,
+}
+
+/// The parameter type for the contract function `registerPublicKeys`.
+#[derive(Debug, Serialize, SchemaType)]
+pub struct RegisterPublicKeyParams(#[concordium(size_length = 2)] pub Vec<RegisterPublicKeyParam>);
+
+/// Register a public key for a given account. The corresponding private
+/// key can sign messages that can be submitted to the `upgrade` function. Can
+/// only be called by the contract owner. Once registered, the public key cannot be updated.
+///
+/// It rejects if:
+/// - The sender is not the contract instance owner.
+/// - Fails to parse parameter.
+/// - A public key is already registered to the account.
+#[receive(
+    contract = "pub_rido_ccd",
+    name = "registerPublicKeys",
+    error = "ContractError",
+    parameter = "RegisterPublicKeyParams",
+    mutable
+)]
+fn contract_regist_updkeys<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    // Parse the parameter.
+    let RegisterPublicKeyParams(params) = ctx.parameter_cursor().get()?;
+
+    for param in params {
+        // Register the public key.
+        let old_public_key = host
+            .state_mut()
+            .upgraders
+            .insert(param.account, param.public_key);
+
+        // Return an error if the owner tries to update/re-write a new public key for an
+        // already registered account.
+        ensure!(
+            old_public_key.is_none(),
+            CustomContractError::AccountAlreadyRegistered.into()
+        );
+    }
 
     Ok(())
 }

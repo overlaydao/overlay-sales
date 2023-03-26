@@ -45,6 +45,13 @@ pub enum CustomContractError {
     DisabledForNow,                        //30
     LogFull,                               //
     LogMalformed,                          //
+    SignatureMapMisconfigured,
+    NonceMismatch,
+    WrongSignature,
+    Expired,
+    WrongContract,
+    NoPublicKey,
+    AccountAlreadyRegistered,
 }
 
 impl From<CustomContractError> for ContractError {

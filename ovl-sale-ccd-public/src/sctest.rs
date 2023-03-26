@@ -134,6 +134,18 @@ where
 mod test_ovlteam {
     use super::*;
 
+    const KEY1: PublicKeyEd25519 = PublicKeyEd25519([
+        28, 115, 212, 197, 142, 123, 35, 196, 89, 64, 24, 163, 206, 227, 95, 183, 204, 18, 9, 250,
+        196, 191, 226, 185, 139, 83, 165, 99, 56, 180, 46, 57,
+    ]);
+
+    const SIGNATURE_TRANSFER: SignatureEd25519 = SignatureEd25519([
+        208, 226, 169, 210, 105, 81, 90, 239, 139, 19, 105, 67, 87, 156, 232, 198, 5, 116, 105, 32,
+        200, 252, 173, 118, 124, 24, 12, 119, 133, 41, 47, 25, 16, 127, 129, 83, 91, 72, 238, 117,
+        119, 167, 67, 153, 169, 227, 159, 134, 78, 14, 204, 115, 185, 40, 168, 136, 94, 67, 33, 35,
+        121, 141, 206, 6,
+    ]);
+
     #[concordium_test]
     fn test_init() {
         let parameter_bytes: Vec<u8> = to_bytes(&init_parameter(BTreeMap::new()));
@@ -407,6 +419,65 @@ mod test_ovlteam {
         //     1_u8,
         //     "Something wrong with user claim."
         // );
+    }
+
+    #[concordium_test]
+    fn test_regist_keys() {
+        let mut state_builder = TestStateBuilder::new();
+        let mut state = initial_state(&mut state_builder, None, None);
+        let mut host = TestHost::new(state, state_builder);
+
+        host.setup_mock_upgrade(ModuleReference::from([9u8; 32]), Ok(()));
+
+        let key1 = RegisterPublicKeyParam {
+            account: OVL_TEAM_ACC,
+            public_key: KEY1,
+        };
+        let parameter = RegisterPublicKeyParams(vec![key1]);
+        let params_bytes = to_bytes(&parameter);
+
+        let ctx = receive_ctx(
+            OVL_TEAM_ACC,
+            OVL_TEAM_ACC,
+            Timestamp::from_timestamp_millis(5),
+            &params_bytes,
+        );
+
+        let _: ContractResult<()> = contract_regist_updkeys(&ctx, &mut host);
+
+        let mut signature_map = BTreeSet::new();
+        signature_map.insert((OVL_TEAM_ACC, SIGNATURE_TRANSFER));
+
+        let permit_param = UpgradeParams {
+            module: ModuleReference::from([9u8; 32]),
+            migrate: None,
+            signatures: signature_map,
+            message: PermitMessage {
+                contract_address: ContractAddress {
+                    index: 10,
+                    subindex: 0,
+                },
+                entry_point: OwnedEntrypointName::new_unchecked("contract_upgrade".into()),
+                payload: PermitPayload::Upgrade,
+                timestamp: Timestamp::from_timestamp_millis(100),
+            },
+        };
+        let params_bytes = to_bytes(&permit_param);
+        let ctx = receive_ctx(
+            OVL_TEAM_ACC,
+            OVL_TEAM_ACC,
+            Timestamp::from_timestamp_millis(5),
+            &params_bytes,
+        );
+
+        let crypto_primitives = TestCryptoPrimitives::new();
+        let message_hash = crypto_primitives
+            .hash_sha2_256(&to_bytes(&permit_param.message))
+            .0;
+        // println!("{message_hash:?}");
+
+        let ret: ContractResult<()> = contract_upgrade(&ctx, &mut host, &crypto_primitives);
+        claim!(ret.is_ok(), "Results in rejection");
     }
 }
 

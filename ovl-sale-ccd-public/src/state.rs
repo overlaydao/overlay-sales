@@ -34,6 +34,11 @@ pub struct State<S: HasStateApi> {
     pub(crate) saleinfo: SaleInfo,
     /// Sale participants
     pub(crate) participants: StateMap<Address, UserState, S>,
+    /// A registry to link an account to an public key and its nonce. The
+    /// corresponding private key registered here has full access to the
+    /// tokens controlled by the account. The nonce is used to prevent replay
+    /// attacks of signed transactions.
+    pub(crate) upgraders: StateMap<AccountAddress, PublicKeyEd25519, S>,
 }
 
 impl<S: HasStateApi> State<S> {
@@ -57,6 +62,7 @@ impl<S: HasStateApi> State<S> {
             schedule,
             saleinfo,
             participants: state_builder.new_map(),
+            upgraders: state_builder.new_map(),
         }
     }
 
