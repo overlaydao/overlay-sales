@@ -438,6 +438,7 @@ mod test_ovlteam {
         let mut state_builder = TestStateBuilder::new();
         let mut state = initial_state(&mut state_builder, None, None);
         let mut host = TestHost::new(state, state_builder);
+        let mut logger = TestLogger::init();
 
         host.setup_mock_upgrade(ModuleReference::from([9u8; 32]), Ok(()));
 
@@ -458,7 +459,25 @@ mod test_ovlteam {
             Timestamp::from_timestamp_millis(5),
             &params_bytes,
         );
-        let _: ContractResult<()> = contract_regist_updkeys(&ctx, &mut host);
+        let _: ContractResult<()> = contract_regist_updkeys(&ctx, &mut host, &mut logger);
+
+        claim_eq!(logger.logs.len(), 2, "Two events should be logged");
+        claim_eq!(
+            logger.logs[0],
+            to_bytes(&OvlSaleEvent::Registration(RegistrationEvent {
+                account: OVL_TEAM_ACC,
+                public_key: KEY1,
+            })),
+            "Incorrect event emitted"
+        );
+        claim_eq!(
+            logger.logs[1],
+            to_bytes(&OvlSaleEvent::Registration(RegistrationEvent {
+                account: PJ_ADMIN_ACC,
+                public_key: KEY2,
+            })),
+            "Incorrect event emitted"
+        );
 
         let mut signature_map = BTreeSet::new();
         signature_map.insert((OVL_TEAM_ACC, SIGNATURE1));

@@ -8,7 +8,8 @@ use concordium_cis2::{
 };
 use concordium_std::{collections::BTreeMap, collections::BTreeSet, *};
 use sale_utils::{
-    ClaimEvent, OvlSaleEvent, PUBLIC_RIDO_FEE, PUBLIC_RIDO_FEE_BBB, PUBLIC_RIDO_FEE_OVL,
+    ClaimEvent, OvlSaleEvent, RegistrationEvent, PUBLIC_RIDO_FEE, PUBLIC_RIDO_FEE_BBB,
+    PUBLIC_RIDO_FEE_OVL,
 };
 use state::{State, *};
 
@@ -656,11 +657,13 @@ pub struct RegisterPublicKeyParams(#[concordium(size_length = 2)] pub Vec<Regist
     name = "registerPublicKeys",
     error = "ContractError",
     parameter = "RegisterPublicKeyParams",
+    enable_logger,
     mutable
 )]
 fn contract_regist_updkeys<S: HasStateApi>(
     ctx: &impl HasReceiveContext,
     host: &mut impl HasHost<State<S>, StateApiType = S>,
+    logger: &mut impl HasLogger,
 ) -> ContractResult<()> {
     ensure!(
         ctx.sender().matches_account(&ctx.owner()),
@@ -683,6 +686,12 @@ fn contract_regist_updkeys<S: HasStateApi>(
             old_public_key.is_none(),
             CustomContractError::AccountAlreadyRegistered.into()
         );
+
+        // Log the registration event.
+        logger.log(&OvlSaleEvent::Registration(RegistrationEvent {
+            account: param.account,
+            public_key: param.public_key,
+        }))?;
     }
 
     Ok(())

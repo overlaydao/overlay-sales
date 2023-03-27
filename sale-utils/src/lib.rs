@@ -1,5 +1,6 @@
 use concordium_std::{
-    collections::BTreeMap, fmt::Debug, schema, Address, SchemaType, Serial, Write,
+    collections::BTreeMap, fmt::Debug, schema, AccountAddress, Address, PublicKeyEd25519,
+    SchemaType, Serial, Write,
 };
 
 pub mod error;
@@ -13,7 +14,8 @@ pub const PUBLIC_RIDO_FEE_BBB: u8 = 5;
 // ---------------------------------------
 
 /// Tag for the OvlClaim event.
-pub const OVL_CLAIM_EVENT_TAG: u8 = 1;
+pub const OVL_CLAIM_EVENT_TAG: u8 = 1u8;
+pub const REGISTRATION_EVENT_TAG: u8 = 2u8;
 
 /// A OvlClaimEvent
 #[derive(Serial, SchemaType, Debug)]
@@ -23,10 +25,18 @@ pub struct ClaimEvent {
     pub inc: u8,
 }
 
+/// The RegistrationEvent is logged when a new public key is registered.
+#[derive(Debug, Serial, SchemaType)]
+pub struct RegistrationEvent {
+    pub account: AccountAddress,
+    pub public_key: PublicKeyEd25519,
+}
+
 /// Tagged events to be serialized for the event log.
 #[derive(Debug)]
 pub enum OvlSaleEvent {
     Claim(ClaimEvent),
+    Registration(RegistrationEvent),
 }
 
 impl Serial for OvlSaleEvent {
@@ -34,6 +44,10 @@ impl Serial for OvlSaleEvent {
         match self {
             OvlSaleEvent::Claim(event) => {
                 out.write_u8(OVL_CLAIM_EVENT_TAG)?;
+                event.serial(out)
+            }
+            OvlSaleEvent::Registration(event) => {
+                out.write_u8(REGISTRATION_EVENT_TAG)?;
                 event.serial(out)
             }
         }
@@ -51,6 +65,16 @@ impl schema::SchemaType for OvlSaleEvent {
                     (String::from("to"), Address::get_type()),
                     (String::from("amount"), u64::get_type()),
                     (String::from("inc"), u8::get_type()),
+                ]),
+            ),
+        );
+        event_map.insert(
+            REGISTRATION_EVENT_TAG,
+            (
+                "Registration".to_string(),
+                schema::Fields::Named(vec![
+                    (String::from("account"), AccountAddress::get_type()),
+                    (String::from("public_key"), PublicKeyEd25519::get_type()),
                 ]),
             ),
         );
