@@ -80,3 +80,28 @@ fn contract_win_units<S: HasStateApi>(
 
     Ok(user_state.win_units)
 }
+
+// ------------------------------------------
+
+#[derive(Serialize, SchemaType, Debug)]
+struct ViewUpdKeysState {
+    keys: Vec<(AccountAddress, PublicKeyEd25519)>,
+}
+
+/// View function that returns the keys for upgrading the contract.
+#[receive(
+    contract = "pub_rido_ccd",
+    name = "viewUpdKeys",
+    return_value = "ViewUpdKeysState"
+)]
+fn contract_view_updkeys<S: HasStateApi>(
+    _ctx: &impl HasReceiveContext,
+    host: &impl HasHost<State<S>, StateApiType = S>,
+) -> ReceiveResult<ViewUpdKeysState> {
+    let mut keys = Vec::new();
+    for (addr, key) in host.state().upgraders.iter() {
+        keys.push((*addr, *key));
+    }
+
+    Ok(ViewUpdKeysState { keys })
+}
