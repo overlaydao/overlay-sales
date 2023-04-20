@@ -1,0 +1,34 @@
+[package]
+authors = [
+  "daratao",
+]
+description = "Concordium smart contract for public Regulated IDO with USDC on OVERLAY platform."
+edition = "2021"
+homepage = "https://overlay.global/"
+license = "MPL-2.0"
+name = "ovl-sale-usdc-public"
+publish = false
+repository = "https://github.com/overlaydao/overlay-sales"
+rust-version = "1.68.1"
+version = "0.2.0"
+
+[features]
+crypto-primitives = ["concordium-std/crypto-primitives"]
+default = ["std"]
+std = ["concordium-std/std", "concordium-cis2/std"]
+wasm-test = ["concordium-std/wasm-test", "concordium-std/concordium-quickcheck"]
+
+[dependencies]
+concordium-cis2 = "3.0.0"
+concordium-std = {version = "6.1.0", default-features = false}
+sale-utils = {path = "../sale-utils"}
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
+
+[dev-dependencies]
+concordium-std = {version = "6.1.0", features = ["concordium-quickcheck"]}
