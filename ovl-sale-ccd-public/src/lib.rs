@@ -245,6 +245,7 @@ fn contract_whitelisting<S: HasStateApi>(
     // all can purchase only 1 unit;
     for AllowedUserParams { user, prior } in params.wl {
         if let Address::Account(_) = user {
+            // if the user exists, just ignore.
             state.whitelisting(&user, prior);
         } else {
             // [#TODO] Only support AccountAddress for now.
