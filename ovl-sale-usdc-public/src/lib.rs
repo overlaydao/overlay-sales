@@ -29,3 +29,39 @@ pub struct InitParams {
     /// Softcap
     pub min_units: UnitsAmount,
 }
+
+/// # Init Function
+/// everyone can init this module, but need to be initialized by ovl_team
+/// since contract_id is needed to record into project contract.
+#[init(contract = "pub_rido_usdc", parameter = "InitParams")]
+fn contract_init<S: HasStateApi>(
+    ctx: &impl HasInitContext,
+    state_builder: &mut StateBuilder<S>,
+) -> InitResult<State<S>> {
+    let params: InitParams = ctx.parameter_cursor().get()?;
+
+    let schedule = SaleSchedule::new(
+        ctx.metadata().slot_time(),
+        params.open_at,
+        params.close_at,
+        params.vesting_period,
+    )?;
+
+    // 1usdc == 1_000_000 microusdc
+    let saleinfo = SaleInfo::new(
+        params.price_per_token,
+        params.token_per_unit,
+        params.max_units,
+        params.min_units,
+    )?;
+
+    Ok(State::new(
+        state_builder,
+        params.usdc_contract,
+        params.proj_admin,
+        params.addr_ovl,
+        params.addr_bbb,
+        schedule,
+        saleinfo,
+    ))
+}
