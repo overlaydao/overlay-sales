@@ -65,3 +65,73 @@ fn contract_init<S: HasStateApi>(
         saleinfo,
     ))
 }
+
+// ==============================================
+// For ovl team
+// ==========================================
+
+/// To change the status to something arbitrary, but is not normally used.
+///
+/// Caller: contract owner only
+/// Reject if:
+/// - The sender is not the contract instance owner.
+/// - Fails to parse parameter
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "setStatus",
+    parameter = "SaleStatus",
+    error = "ContractError",
+    mutable
+)]
+fn contract_set_status<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+    let status: SaleStatus = ctx.parameter_cursor().get()?;
+    host.state_mut().status = status;
+
+    Ok(())
+}
+
+/// Set status to fix for next stage(claim).
+/// Note: if not reached softcap, the sale will be cancelled.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - The sender is not the contract owner.
+/// - Called before the end of the sale
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "setFixed",
+    error = "ContractError",
+    mutable
+)]
+fn contract_set_fixed<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    let mut state = host.state_mut();
+
+    // This func does not work until the sale is closed.
+    ensure!(
+        state.schedule.is_sale_closed(ctx.metadata().slot_time()),
+        CustomContractError::InvalidSchedule.into()
+    );
+
+    if state.saleinfo.is_reached_sc() {
+        state.status = SaleStatus::Fixed;
+    } else {
+        state.status = SaleStatus::Suspend;
+    }
+
+    Ok(())
+}
