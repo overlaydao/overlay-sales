@@ -488,3 +488,63 @@ fn contract_set_unpaused<S: HasStateApi>(
     host.state_mut().paused = false;
     Ok(())
 }
+
+// ==============================================
+// For project admin
+// ==========================================
+
+/// Project Administrator should this function once project token are generated.
+/// The amount to be deposited must be the same as the amount sold at the sale
+/// Note: This contract is supposed to be called from a CIS2 contract
+///
+/// Caller: Project Token Contract only
+/// Invoker: Project Admin only
+/// Reject if:
+/// - Contract is paused
+/// - Fails to parse parameter
+/// - Status is not Fixed
+/// - The sender is not the project token contract
+/// - The quantity to be deposited differs from the quantity sold in the sale.
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "createPool",
+    parameter = "OnReceivingCis2Params<ContractTokenId, ContractTokenAmount>",
+    error = "ContractError"
+)]
+fn contract_create_pool<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    let state = host.state();
+    ensure!(!state.paused, CustomContractError::ContractPaused.into());
+    ensure_eq!(
+        state.status,
+        SaleStatus::Fixed,
+        CustomContractError::SaleNotFixed.into()
+    );
+
+    let sender = if let Address::Contract(contract) = ctx.sender() {
+        contract
+    } else {
+        bail!(CustomContractError::ContractOnly.into())
+    };
+
+    ensure!(
+        sender == state.project_token.unwrap_or(ContractAddress::new(0, 0))
+            && ctx.invoker() == state.proj_admin,
+        ContractError::Unauthorized
+    );
+
+    let params: OnReceivingCis2Params<ContractTokenId, ContractTokenAmount> =
+        ctx.parameter_cursor().get()?;
+
+    //#[TODO] Check this func is only called after the sale is over.
+    // if not need project_refund func
+    let amount = state.saleinfo.amount_of_pjtoken()?;
+    ensure!(
+        amount == params.amount,
+        CustomContractError::NotMatchAmount.into()
+    );
+
+    Ok(())
+}
