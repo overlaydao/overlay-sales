@@ -1,7 +1,11 @@
 #![allow(unused)]
 mod state;
 
+use concordium_cis2::{
+    AdditionalData, OnReceivingCis2Params, Receiver, TokenIdUnit, Transfer, TransferParams,
+};
 use concordium_std::{collections::BTreeMap, *};
+use sale_utils::{PUBLIC_RIDO_FEE, PUBLIC_RIDO_FEE_BBB, PUBLIC_RIDO_FEE_OVL};
 use state::{State, *};
 
 #[derive(Debug, Serialize, SchemaType)]
@@ -203,6 +207,176 @@ fn contract_whitelisting<S: HasStateApi>(
 
     if params.ready {
         state.status = SaleStatus::Ready;
+    }
+
+    Ok(())
+}
+
+/// To claim sale fee for overlay team.
+/// Note: 5% for now.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - The sender is not the contract owner
+/// - Status is not Fixed
+/// - Project admin has not yet registered the project token
+/// - Project admin has not yet registered the TGE
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "ovlClaim",
+    error = "ContractError",
+    mutable
+)]
+fn contract_ovl_claim<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    let mut state = host.state_mut();
+
+    ensure!(
+        state.status == SaleStatus::Fixed,
+        CustomContractError::SaleNotFixed.into()
+    );
+
+    ensure!(
+        state.project_token.is_some(),
+        CustomContractError::NotSetProjectToken.into()
+    );
+    ensure!(
+        state.schedule.vesting_start.is_some(),
+        CustomContractError::NotSetTge.into()
+    );
+
+    let vesting_start = state.schedule.vesting_start.unwrap();
+
+    let now = ctx.metadata().slot_time();
+    let total_units = cmp::min(state.saleinfo.max_units, state.saleinfo.applied_units);
+
+    let (amount, inc): (ContractTokenAmount, u8) = state.calc_vesting_amount(
+        now,
+        vesting_start,
+        total_units as u64,
+        PUBLIC_RIDO_FEE_OVL,
+        state.ovl_claimed_inc,
+    )?;
+
+    if inc > state.ovl_claimed_inc {
+        state.ovl_claimed_inc = inc;
+    }
+
+    if amount.0 > 0 {
+        let to = match state.addr_ovl {
+            Address::Account(account_addr) => Receiver::from_account(account_addr),
+            Address::Contract(contract_addr) => Receiver::from_contract(
+                contract_addr,
+                OwnedEntrypointName::new_unchecked("callback".to_owned()),
+            ),
+        };
+
+        let transfer = Transfer {
+            from: Address::from(ctx.self_address()),
+            to,
+            token_id: TokenIdUnit(),
+            amount,
+            data: AdditionalData::empty(),
+        };
+        let project_token = state.project_token.unwrap();
+        let _ = host.invoke_contract(
+            &project_token,
+            &TransferParams::from(vec![transfer]),
+            EntrypointName::new_unchecked("transfer"),
+            Amount::zero(),
+        )?;
+    }
+
+    Ok(())
+}
+
+/// To claim sale fee for Buy Back Burn.
+/// Note: 5% for now.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - The sender is not the contract owner
+/// - Status is not Fixed
+/// - Project admin has not yet registered the project token
+/// - Project admin has not yet registered the TGE
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "bbbClaim",
+    error = "ContractError",
+    mutable
+)]
+fn contract_bbb_claim<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    let mut state = host.state_mut();
+
+    ensure!(
+        state.status == SaleStatus::Fixed,
+        CustomContractError::SaleNotFixed.into()
+    );
+
+    ensure!(
+        state.project_token.is_some(),
+        CustomContractError::NotSetProjectToken.into()
+    );
+    ensure!(
+        state.schedule.vesting_start.is_some(),
+        CustomContractError::NotSetTge.into()
+    );
+
+    let vesting_start = state.schedule.vesting_start.unwrap();
+
+    let now = ctx.metadata().slot_time();
+    let total_units = cmp::min(state.saleinfo.max_units, state.saleinfo.applied_units);
+
+    let (amount, inc): (ContractTokenAmount, u8) = state.calc_vesting_amount(
+        now,
+        vesting_start,
+        total_units as u64,
+        PUBLIC_RIDO_FEE_BBB,
+        state.bbb_claimed_inc,
+    )?;
+
+    if inc > state.bbb_claimed_inc {
+        state.bbb_claimed_inc = inc;
+    }
+
+    if amount.0 > 0 {
+        let to = match state.addr_bbb {
+            Address::Account(account_addr) => Receiver::from_account(account_addr),
+            Address::Contract(contract_addr) => Receiver::from_contract(
+                contract_addr,
+                OwnedEntrypointName::new_unchecked("callback".to_owned()),
+            ),
+        };
+
+        let transfer = Transfer {
+            from: Address::from(ctx.self_address()),
+            to,
+            token_id: TokenIdUnit(),
+            amount,
+            data: AdditionalData::empty(),
+        };
+        let project_token = state.project_token.unwrap();
+        let _ = host.invoke_contract(
+            &project_token,
+            &TransferParams::from(vec![transfer]),
+            EntrypointName::new_unchecked("transfer"),
+            Amount::zero(),
+        )?;
     }
 
     Ok(())
