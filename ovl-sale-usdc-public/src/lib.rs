@@ -686,3 +686,98 @@ fn contract_project_claim<S: HasStateApi>(
         },
     }
 }
+
+// ==============================================
+// For users
+// ==========================================
+
+/// Sale participant call USCD contract for transfer USDC to this contract
+/// to fix the right to purchase tokens
+/// by deposit their USDC to this contract.
+///
+/// Caller: Anyone(Not limited to users on the whitelist)
+/// Reject if:
+/// - Contract is paused
+/// - Status is not Ready
+/// - User does not have valid priority
+/// - User have already deposited
+/// - Hardcap has already been reached
+/// - Sended USDC not match Sale Amount
+///
+/// Note: host.invoke_transfer() can only transfer USDC to the AccountAddress.
+/// If needed, host.invoke_contract() can trasfer USDC to the Contract, but need entrypoint!
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "userDeposit",
+    parameter = "OnReceivingCis2Params<ContractTokenId, ContractTokenAmount>",
+    error = "ContractError",
+    mutable
+)]
+fn contract_user_deposit<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    let state = host.state_mut();
+
+    ensure!(!state.paused, CustomContractError::ContractPaused.into());
+
+    ensure!(
+        state.status == SaleStatus::Ready,
+        CustomContractError::SaleNotReady.into()
+    );
+
+    let sender = if let Address::Contract(contract) = ctx.sender() {
+        contract
+    } else {
+        bail!(CustomContractError::ContractOnly.into())
+    };
+    ensure!(sender == state.usdc_contract, ContractError::Unauthorized);
+
+    // get current priority
+    let current_priority = state
+        .schedule
+        .check_sale_priority(ctx.metadata().slot_time());
+
+    ensure!(
+        current_priority.is_some(),
+        CustomContractError::InvalidSchedule.into()
+    );
+    let current_priority = current_priority.unwrap();
+
+    let room = state.saleinfo.check_room_to_apply();
+    ensure!(room > 0, CustomContractError::AlreadySaleClosed.into());
+
+    let invoker = Address::from(ctx.invoker());
+    let user_state = state.get_user_any(&invoker)?;
+
+    // check already deposited
+    ensure!(
+        user_state.win_units == 0,
+        CustomContractError::AlreadyDeposited.into()
+    );
+
+    // check priority the user have
+    if user_state.prior > current_priority {
+        bail!(ContractError::Unauthorized)
+    }
+
+    // update userstate
+    let win_units: u8 = user_state.tgt_units;
+    ensure!(
+        room >= win_units as u32,
+        CustomContractError::AlreadySaleClosed.into()
+    );
+
+    let params: OnReceivingCis2Params<ContractTokenId, ContractTokenAmount> =
+        ctx.parameter_cursor().get()?;
+
+    let calced_price: ContractTokenAmount = state.saleinfo.calc_price_per_unit() * win_units as u64;
+
+    ensure!(
+        params.amount == calced_price,
+        CustomContractError::NotMatchAmount.into()
+    );
+    let _ = state.deposit(&invoker, params.amount, win_units)?;
+
+    Ok(())
+}
