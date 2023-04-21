@@ -493,6 +493,79 @@ fn contract_set_unpaused<S: HasStateApi>(
 // For project admin
 // ==========================================
 
+/// Set project token contract.
+///
+/// Caller: #[TODO] not decided yet
+/// Reject if:
+/// - Fails to parse parameter
+/// - Already set the contract address
+/// - The sender is not the project admin ?
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "setPjtoken",
+    parameter = "ContractAddress",
+    error = "ContractError",
+    mutable
+)]
+fn contract_set_pjtoken<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    // currently under discussion who should call this func
+    ensure!(
+        ctx.sender().matches_account(&host.state().proj_admin),
+        ContractError::Unauthorized
+    );
+    let addr: ContractAddress = ctx.parameter_cursor().get()?;
+
+    let mut state = host.state_mut();
+
+    ensure!(
+        state.project_token.is_none(),
+        CustomContractError::Inappropriate.into()
+    );
+
+    state.project_token = Some(addr);
+
+    Ok(())
+}
+
+/// Set TGE, which means it determines the beginning of the vesting period.
+///
+/// Caller: Project Admin only
+/// Reject if:
+/// - Fails to parse parameter
+/// - The sender is not the project admin
+/// - Already set the TGE
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "setTGE",
+    parameter = "Timestamp",
+    error = "ContractError",
+    mutable
+)]
+fn contract_set_tge<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&host.state().proj_admin),
+        ContractError::Unauthorized
+    );
+    let ts: Timestamp = ctx.parameter_cursor().get()?;
+
+    let mut state = host.state_mut();
+
+    ensure!(
+        state.schedule.vesting_start.is_none(),
+        CustomContractError::Inappropriate.into()
+    );
+
+    state.schedule.vesting_start = Some(ts);
+
+    Ok(())
+}
+
 /// Project Administrator should this function once project token are generated.
 /// The amount to be deposited must be the same as the amount sold at the sale
 /// Note: This contract is supposed to be called from a CIS2 contract
