@@ -381,3 +381,63 @@ fn contract_bbb_claim<S: HasStateApi>(
 
     Ok(())
 }
+
+/// Change TGE(vesting period)
+/// Note: should not be called except in case of emergency.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - Fails to parse parameter
+/// - The sender is not the contract owner.
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "changeTGE",
+    parameter = "Timestamp",
+    error = "ContractError",
+    mutable
+)]
+fn contract_change_tge<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    //#[TODO] need multiple sig?
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    let ts: Timestamp = ctx.parameter_cursor().get()?;
+    host.state_mut().schedule.vesting_start = Some(ts);
+
+    Ok(())
+}
+
+/// Change project token contract
+/// Note: should not be called except in case of emergency.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - Fails to parse parameter
+/// - The sender is not the contract owner.
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "changePjtoken",
+    parameter = "ContractAddress",
+    error = "ContractError",
+    mutable
+)]
+fn contract_change_pjtoken<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    //#[TODO] need multiple sig?
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    let addr: ContractAddress = ctx.parameter_cursor().get()?;
+    host.state_mut().project_token = Some(addr);
+
+    Ok(())
+}
