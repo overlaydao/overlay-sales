@@ -548,3 +548,68 @@ fn contract_create_pool<S: HasStateApi>(
 
     Ok(())
 }
+
+/// Project admin can claim USDC sold at the sale.
+/// Note: No sale fee is charged to the project.
+///
+/// Caller: Anyone on the whitelist
+/// Reject if:
+/// - Contract is paused
+/// - Status is not Fixed
+/// - The sender is not the project admin
+/// - Fails to invoke transfer from this contract to the admin
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "projectClaim",
+    error = "ContractError",
+    mutable
+)]
+fn contract_project_claim<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    let state = host.state();
+    ensure!(!state.paused, CustomContractError::ContractPaused.into());
+
+    ensure_eq!(
+        state.status,
+        SaleStatus::Fixed,
+        CustomContractError::SaleNotFixed.into()
+    );
+
+    ensure!(
+        ctx.sender().matches_account(&state.proj_admin),
+        ContractError::Unauthorized
+    );
+
+    // Transfer the whole balance to the project admin.
+    // #[TODO] need to check balanceOf?
+    let total_tokens: ContractTokenAmount = state.saleinfo.amount_of_pjtoken()?;
+    // this price is based on microusdc
+    let total_saled = state.saleinfo.price_per_token as u64 * total_tokens.0;
+    // let total_saled = state.price_per_token as u64 * total_tokens / 10_u64.pow(MICRO_USDC_DECIMALS);
+
+    // let exchange_token = state.usdc_contract;
+    let exchange_token = host.state().usdc_contract;
+    let transfer = Transfer {
+        from: Address::from(ctx.self_address()),
+        to: Receiver::from_account(state.proj_admin),
+        token_id: TokenIdUnit(),
+        amount: ContractTokenAmount::from(total_saled),
+        data: AdditionalData::empty(),
+    };
+
+    let ret = host.invoke_contract(
+        &exchange_token,
+        &TransferParams::from(vec![transfer]),
+        EntrypointName::new_unchecked("transfer"),
+        Amount::from_micro_ccd(0u64),
+    );
+
+    match ret {
+        Ok((_, _)) => Ok(()),
+        Err(e) => match e {
+            _ => bail!(e.into()),
+        },
+    }
+}
