@@ -135,3 +135,75 @@ fn contract_set_fixed<S: HasStateApi>(
 
     Ok(())
 }
+
+// #[TODO] WhitelistingParams can be shared with other sales.
+
+/// Parameter type for the contract function `whitelisting`.
+/// Currently user can be both account and contract.
+/// [#TODO] But need to consider when user can be contract.
+#[derive(Debug, Serialize, SchemaType)]
+struct WhitelistingParams {
+    /// the whitelist
+    wl: Vec<AllowedUserParams>,
+    /// If true, it means no further registration
+    ready: bool,
+}
+
+#[derive(Debug, Serialize, SchemaType)]
+struct AllowedUserParams {
+    /// Users address to be whitelisted
+    user: Address,
+    /// Priority for participation in the sale
+    prior: Prior,
+}
+
+/// Whitelist users who can participate in the sale
+/// Note: All user can be allocated just one unit.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - Fails to parse parameter
+/// - The sender is not the contract owner.
+/// - Status is not Prepare
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "whitelisting",
+    parameter = "Vec<AllowedUserParams>",
+    error = "ContractError",
+    mutable
+)]
+fn contract_whitelisting<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+
+    let mut state = host.state_mut();
+    ensure_eq!(
+        state.status,
+        SaleStatus::Prepare,
+        CustomContractError::AlreadySaleStarted.into()
+    );
+
+    let params: WhitelistingParams = ctx.parameter_cursor().get()?;
+
+    // all can purchase only 1 unit;
+    for AllowedUserParams { user, prior } in params.wl {
+        if let Address::Account(_) = user {
+            // if the user exists, just ignore.
+            state.whitelisting(&user, prior);
+        } else {
+            // #[TODO] Only support AccountAddress for now.
+            bail!(CustomContractError::AccountOnly.into())
+        };
+    }
+
+    if params.ready {
+        state.status = SaleStatus::Ready;
+    }
+
+    Ok(())
+}
