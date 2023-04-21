@@ -441,3 +441,50 @@ fn contract_change_pjtoken<S: HasStateApi>(
 
     Ok(())
 }
+
+/// Some transferable functions (createPool, projectClaim, deposit, quit, userClaim)
+/// cannot be executed when the contract is paused.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - The sender is not the contract owner.
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "setPaused",
+    error = "ContractError",
+    mutable
+)]
+fn contract_set_paused<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+    host.state_mut().paused = true;
+    Ok(())
+}
+
+/// The contract is unpaused.
+///
+/// Caller: contract instance owner only
+/// Reject if:
+/// - The sender is not the contract owner.
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "setUnpaused",
+    error = "ContractError",
+    mutable
+)]
+fn contract_set_unpaused<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    ensure!(
+        ctx.sender().matches_account(&ctx.owner()),
+        ContractError::Unauthorized
+    );
+    host.state_mut().paused = false;
+    Ok(())
+}
