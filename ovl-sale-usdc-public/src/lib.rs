@@ -771,13 +771,101 @@ fn contract_user_deposit<S: HasStateApi>(
     let params: OnReceivingCis2Params<ContractTokenId, ContractTokenAmount> =
         ctx.parameter_cursor().get()?;
 
-    let calced_price: ContractTokenAmount = state.saleinfo.calc_price_per_unit() * win_units as u64;
+    let calced_price: ContractTokenAmount =
+        state.saleinfo.calc_price_per_unit()? * win_units as u64;
 
     ensure!(
         params.amount == calced_price,
         CustomContractError::NotMatchAmount.into()
     );
     let _ = state.deposit(&invoker, params.amount, win_units)?;
+
+    Ok(())
+}
+
+/// Sale participants can claim project token when the vesting period arrives.
+/// Note: If a user claims many times within a certain period of time,
+/// they will just get 0 back.
+///
+/// Caller: Anyone on the whitelist
+/// Reject if:
+/// - Contract is paused
+/// - Status is not Fixed
+/// - Project admin has not yet registered the project token
+/// - Project admin has not yet registered the TGE
+/// - The sender is not on the whitelist
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "userClaim",
+    error = "ContractError",
+    mutable
+)]
+fn contract_user_claim<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    let state = host.state_mut();
+
+    ensure!(!state.paused, CustomContractError::ContractPaused.into());
+    ensure_eq!(
+        state.status,
+        SaleStatus::Fixed,
+        CustomContractError::SaleNotFixed.into()
+    );
+
+    ensure!(
+        state.project_token.is_some(),
+        CustomContractError::NotSetProjectToken.into()
+    );
+    ensure!(
+        state.schedule.vesting_start.is_some(),
+        CustomContractError::NotSetTge.into()
+    );
+    let vesting_start = state.schedule.vesting_start.unwrap();
+
+    let user = ctx.sender();
+    let user_state = state.get_user(&user)?;
+
+    let now = ctx.metadata().slot_time();
+
+    let (amount, inc): (ContractTokenAmount, u8) = state.calc_vesting_amount(
+        now,
+        vesting_start,
+        user_state.win_units as u64,
+        100 - PUBLIC_RIDO_FEE,
+        user_state.claimed_inc,
+    )?;
+
+    if inc > user_state.claimed_inc {
+        state.increment_user_claimed(&user, inc)?;
+    }
+
+    if amount.0 > 0 {
+        let to = match user {
+            Address::Account(account_address) => Receiver::from_account(account_address),
+            Address::Contract(contract_address) => Receiver::from_contract(
+                contract_address,
+                OwnedEntrypointName::new_unchecked("callback".to_owned()),
+            ),
+        };
+
+        let transfer = Transfer {
+            from: Address::from(ctx.self_address()),
+            to,
+            token_id: TokenIdUnit(),
+            amount: ContractTokenAmount::from(amount),
+            data: AdditionalData::empty(),
+        };
+
+        let project_token = state.project_token.unwrap();
+
+        let _ = host.invoke_contract(
+            &project_token,
+            &TransferParams::from(vec![transfer]),
+            EntrypointName::new_unchecked("transfer"),
+            Amount::zero(),
+        )?;
+    }
 
     Ok(())
 }
