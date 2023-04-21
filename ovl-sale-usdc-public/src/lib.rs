@@ -869,3 +869,87 @@ fn contract_user_claim<S: HasStateApi>(
 
     Ok(())
 }
+
+/// Sale participants call this function to quit the sale and
+/// to be refunded their usdc.
+/// Note: Not available for now, means no one can quit once deposit their fund.
+///
+/// Caller: No one
+/// Reject if:
+/// - Always(currently)
+/// - Contract is paused
+/// - Status is not Ready
+/// - Not on sale
+/// - The sender is not on the whitelist
+/// - The sender has not deposited.
+/// - The sender is ContractAddress.
+///
+/// Note: host.invoke_transfer() can only transfer USDC to the AccountAddress.
+/// If needed, host.invoke_contract() can trasfer USDC to the Contract, but need entrypoint!
+#[receive(
+    contract = "pub_rido_usdc",
+    name = "userQuit",
+    error = "ContractError",
+    mutable
+)]
+fn contract_user_quit<S: HasStateApi>(
+    ctx: &impl HasReceiveContext,
+    host: &mut impl HasHost<State<S>, StateApiType = S>,
+) -> ContractResult<()> {
+    let state = host.state_mut();
+    ensure!(!state.paused, CustomContractError::ContractPaused.into());
+
+    if state.status != SaleStatus::Suspend {
+        // currently no one can quit
+        ensure!(false, CustomContractError::DisabledForNow.into());
+
+        ensure_eq!(
+            state.status,
+            SaleStatus::Ready,
+            CustomContractError::SaleNotReady.into()
+        );
+
+        ensure!(
+            state.schedule.is_on_sale(ctx.metadata().slot_time()),
+            CustomContractError::InvalidSchedule.into()
+        );
+    }
+
+    let sender = ctx.sender();
+    let user = state.get_user(&sender)?;
+
+    ensure!(user.win_units > 0, CustomContractError::NotDeposited.into());
+
+    let user_addr = if let Address::Account(addr) = sender {
+        addr
+    } else {
+        // [#TODO] If need to transfer to Contract, consider invoke_contract.
+        // But in that case, the contract need to implement specific entrypoint.
+        bail!(CustomContractError::AccountOnly.into())
+    };
+
+    state.remove_participant(&sender, user.win_units);
+
+    let exchange_token = state.usdc_contract;
+    let transfer = Transfer {
+        from: Address::from(ctx.self_address()),
+        to: Receiver::from_account(user_addr),
+        token_id: TokenIdUnit(),
+        amount: ContractTokenAmount::from(user.deposit_usdc),
+        data: AdditionalData::empty(),
+    };
+
+    let ret = host.invoke_contract(
+        &exchange_token,
+        &TransferParams::from(vec![transfer]),
+        EntrypointName::new_unchecked("transfer"),
+        Amount::from_micro_ccd(0u64),
+    );
+
+    match ret {
+        Ok((_, _)) => Ok(()),
+        Err(e) => match e {
+            _ => bail!(e.into()),
+        },
+    }
+}
