@@ -64,9 +64,8 @@ impl<S: HasStateApi> State<S> {
         }
     }
 
-    // TODO should we remove &mut (should not be self mutable function)
     pub(crate) fn calc_vesting_amount(
-        &mut self,
+        &self,
         now: Timestamp,
         vesting_start: Timestamp,
         total_units: u64,
@@ -135,8 +134,7 @@ impl<S: HasStateApi> State<S> {
         self.participants.entry(*user).is_occupied()
     }
 
-    // TODO should we remove &mut (should not be self mutable function)
-    pub(crate) fn get_user(&mut self, user: &Address) -> ContractResult<UserState> {
+    pub(crate) fn get_user(&self, user: &Address) -> ContractResult<UserState> {
         let user = self
             .participants
             .get(user)

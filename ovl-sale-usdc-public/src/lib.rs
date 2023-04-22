@@ -1,5 +1,6 @@
 #![allow(unused)]
 mod state;
+mod view;
 
 use concordium_cis2::{
     AdditionalData, OnReceivingCis2Params, Receiver, TokenIdUnit, Transfer, TransferParams,
