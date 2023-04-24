@@ -1,4 +1,5 @@
-#![allow(unused)]
+#[cfg(any(feature = "wasm-test", test))]
+mod sctest;
 mod state;
 mod view;
 

@@ -705,7 +705,7 @@ mod tests {
         .unwrap();
         let saleinfo = SaleInfo::new(15_000_000, token_per_unit.into(), max, 100).unwrap();
 
-        let mut state = State::new(
+        let state = State::new(
             &mut state_builder,
             params.usdc_contract,
             params.proj_admin,
@@ -761,7 +761,7 @@ mod tests {
         .unwrap();
         let saleinfo = SaleInfo::new(15_000_000, token_per_unit.into(), max, 100).unwrap();
 
-        let mut state = State::new(
+        let state = State::new(
             &mut state_builder,
             params.usdc_contract,
             params.proj_admin,
@@ -811,7 +811,7 @@ mod tests {
         .unwrap();
         let saleinfo = SaleInfo::new(15_000_000, token_per_unit.into(), max, 100).unwrap();
 
-        let mut state = State::new(
+        let state = State::new(
             &mut state_builder,
             params.usdc_contract,
             params.proj_admin,
@@ -868,7 +868,7 @@ mod tests {
         .unwrap();
         let saleinfo = SaleInfo::new(15_000_000, token_per_unit.into(), max, 100).unwrap();
 
-        let mut state = State::new(
+        let state = State::new(
             &mut state_builder,
             params.usdc_contract,
             params.proj_admin,
@@ -925,7 +925,7 @@ mod tests {
         .unwrap();
         let saleinfo = SaleInfo::new(price_per_token, token_per_unit.into(), max, 10).unwrap();
 
-        let mut state = State::new(
+        let state = State::new(
             &mut state_builder,
             params.usdc_contract,
             params.proj_admin,
@@ -984,7 +984,7 @@ mod tests {
         .unwrap();
         let saleinfo = SaleInfo::new(price_per_token, token_per_unit.into(), max, 100).unwrap();
 
-        let mut state = State::new(
+        let state = State::new(
             &mut state_builder,
             params.usdc_contract,
             params.proj_admin,
