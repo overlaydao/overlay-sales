@@ -13,7 +13,7 @@ use state::{State, *};
 #[derive(Debug, Serialize, SchemaType)]
 pub struct InitParams {
     /// Contract owner
-    pub(crate) operator: Receiver,
+    pub(crate) operator: Address,
     /// cis2 contract for usdc token
     pub usdc_contract: ContractAddress,
     /// Account of the administrator of the entity running the IDO

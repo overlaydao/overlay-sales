@@ -82,12 +82,9 @@ fn def_sale_info(applied_units: u32) -> SaleInfo {
     }
 }
 
-fn def_operator() -> Receiver {
-    Receiver::Contract(
-        ContractAddress {
-            index: 88,
-            subindex: 0,
-        },
-        OwnedEntrypointName::new_unchecked("callback".to_owned()),
-    )
+fn def_operator() -> Address {
+    Address::Contract(ContractAddress {
+        index: 88,
+        subindex: 0,
+    })
 }

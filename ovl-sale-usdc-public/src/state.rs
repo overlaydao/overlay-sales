@@ -1,5 +1,4 @@
 use collections::BTreeMap;
-use concordium_cis2::Receiver;
 use concordium_std::{SchemaType, Serialize, *};
 pub use sale_utils::{
     error::{ContractError, ContractResult, CustomContractError},
@@ -14,7 +13,7 @@ pub const TARGET_UNITS: u8 = 1;
 #[concordium(state_parameter = "S")]
 pub struct State<S: HasStateApi> {
     /// Contract owner
-    pub(crate) operator: Receiver,
+    pub(crate) operator: Address,
     /// cis2 contract for usdc token
     pub(crate) usdc_contract: ContractAddress,
     /// Account of the administrator of the entity running the IDO
@@ -44,7 +43,7 @@ pub struct State<S: HasStateApi> {
 impl<S: HasStateApi> State<S> {
     pub(crate) fn new(
         state_builder: &mut StateBuilder<S>,
-        operator: Receiver,
+        operator: Address,
         usdc_contract: ContractAddress,
         proj_admin: AccountAddress,
         addr_ovl: Address,
@@ -460,13 +459,10 @@ mod tests {
 
     fn init_parameter(vesting_period: BTreeMap<Duration, AllowedPercentage>) -> InitParams {
         InitParams {
-            operator: Receiver::Contract(
-                ContractAddress {
-                    index: 88,
-                    subindex: 0,
-                },
-                OwnedEntrypointName::new_unchecked("callback".to_owned()),
-            ),
+            operator: Address::Contract(ContractAddress {
+                index: 88,
+                subindex: 0,
+            }),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             addr_ovl: ADDR_OVL,
