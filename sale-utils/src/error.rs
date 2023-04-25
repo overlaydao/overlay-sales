@@ -42,6 +42,7 @@ pub enum CustomContractError {
     NotSetProjectToken,                    //
     Inappropriate,                         //
     DisabledForNow,                        //
+    AccountDuplicated,
 }
 
 impl From<CustomContractError> for ContractError {
