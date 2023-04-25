@@ -43,6 +43,9 @@ pub enum CustomContractError {
     Inappropriate,                         //
     DisabledForNow,                        //
     AccountDuplicated,
+    WrongContract,
+    Expired,
+    NoPublicKey,
 }
 
 impl From<CustomContractError> for ContractError {
