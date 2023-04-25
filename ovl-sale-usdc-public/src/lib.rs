@@ -12,6 +12,8 @@ use state::{State, *};
 
 #[derive(Debug, Serialize, SchemaType)]
 pub struct InitParams {
+    /// Contract owner
+    pub(crate) operator: Receiver,
     /// cis2 contract for usdc token
     pub usdc_contract: ContractAddress,
     /// Account of the administrator of the entity running the IDO
@@ -63,6 +65,7 @@ fn contract_init<S: HasStateApi>(
 
     Ok(State::new(
         state_builder,
+        params.operator,
         params.usdc_contract,
         params.proj_admin,
         params.addr_ovl,

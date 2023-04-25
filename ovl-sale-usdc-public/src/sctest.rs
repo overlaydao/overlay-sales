@@ -3,6 +3,7 @@ mod participant;
 mod project_admin;
 
 use super::state::{State, *};
+use concordium_cis2::Receiver;
 use concordium_std::test_infrastructure::*;
 use concordium_std::{collections::BTreeMap, *};
 
@@ -79,4 +80,14 @@ fn def_sale_info(applied_units: u32) -> SaleInfo {
         min_units: 1,
         applied_units,
     }
+}
+
+fn def_operator() -> Receiver {
+    Receiver::Contract(
+        ContractAddress {
+            index: 88,
+            subindex: 0,
+        },
+        OwnedEntrypointName::new_unchecked("callback".to_owned()),
+    )
 }

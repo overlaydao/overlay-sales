@@ -10,6 +10,7 @@ mod tests {
         let mut state_builder = TestStateBuilder::new();
 
         let expected_state = State {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             status: SaleStatus::Prepare,
@@ -25,6 +26,7 @@ mod tests {
         };
 
         let params = InitParams {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             addr_ovl: ADDR_OVL,

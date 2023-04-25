@@ -1,4 +1,5 @@
 use collections::BTreeMap;
+use concordium_cis2::Receiver;
 use concordium_std::{SchemaType, Serialize, *};
 pub use sale_utils::{
     error::{ContractError, ContractResult, CustomContractError},
@@ -12,6 +13,8 @@ pub const TARGET_UNITS: u8 = 1;
 #[derive(Debug, Serial, DeserialWithState, StateClone)]
 #[concordium(state_parameter = "S")]
 pub struct State<S: HasStateApi> {
+    /// Contract owner
+    pub(crate) operator: Receiver,
     /// cis2 contract for usdc token
     pub(crate) usdc_contract: ContractAddress,
     /// Account of the administrator of the entity running the IDO
@@ -41,6 +44,7 @@ pub struct State<S: HasStateApi> {
 impl<S: HasStateApi> State<S> {
     pub(crate) fn new(
         state_builder: &mut StateBuilder<S>,
+        operator: Receiver,
         usdc_contract: ContractAddress,
         proj_admin: AccountAddress,
         addr_ovl: Address,
@@ -49,6 +53,7 @@ impl<S: HasStateApi> State<S> {
         saleinfo: SaleInfo,
     ) -> Self {
         State {
+            operator,
             usdc_contract,
             proj_admin,
             paused: false,
@@ -455,6 +460,13 @@ mod tests {
 
     fn init_parameter(vesting_period: BTreeMap<Duration, AllowedPercentage>) -> InitParams {
         InitParams {
+            operator: Receiver::Contract(
+                ContractAddress {
+                    index: 88,
+                    subindex: 0,
+                },
+                OwnedEntrypointName::new_unchecked("callback".to_owned()),
+            ),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             addr_ovl: ADDR_OVL,
@@ -532,6 +544,7 @@ mod tests {
         .unwrap_abort();
         let mut state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,
@@ -628,6 +641,7 @@ mod tests {
         .unwrap_abort();
         let mut state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,
@@ -707,6 +721,7 @@ mod tests {
 
         let state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,
@@ -763,6 +778,7 @@ mod tests {
 
         let state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,
@@ -813,6 +829,7 @@ mod tests {
 
         let state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,
@@ -870,6 +887,7 @@ mod tests {
 
         let state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,
@@ -927,6 +945,7 @@ mod tests {
 
         let state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,
@@ -986,6 +1005,7 @@ mod tests {
 
         let state = State::new(
             &mut state_builder,
+            params.operator,
             params.usdc_contract,
             params.proj_admin,
             params.addr_ovl,

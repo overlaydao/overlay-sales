@@ -13,6 +13,7 @@ mod tests {
         let mut state_builder = TestStateBuilder::new();
 
         let mut state = State {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             status: SaleStatus::Ready,
@@ -49,6 +50,7 @@ mod tests {
         }
 
         let expected_state = State {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             status: SaleStatus::Ready,
@@ -116,6 +118,7 @@ mod tests {
         let mut state_builder = TestStateBuilder::new();
 
         let mut state = State {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             status: SaleStatus::Ready,
@@ -152,6 +155,7 @@ mod tests {
         }
 
         let expected_state = State {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             status: SaleStatus::Ready,
@@ -275,6 +279,7 @@ mod tests {
         let mut state_builder = TestStateBuilder::new();
 
         let mut state = State {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             status: SaleStatus::Ready,
@@ -330,6 +335,7 @@ mod tests {
         }
 
         let expected_state = State {
+            operator: def_operator(),
             usdc_contract: USDC,
             proj_admin: PJ_ADMIN_ACC,
             status: SaleStatus::Ready,
