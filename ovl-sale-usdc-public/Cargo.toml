@@ -18,10 +18,22 @@ default = ["std"]
 std = ["concordium-std/std", "concordium-cis2/std"]
 wasm-test = ["concordium-std/wasm-test", "concordium-std/concordium-quickcheck"]
 
+[dependencies.concordium-cis2]
+path = "../concordium-rust-smart-contracts/concordium-cis2"
+version = "3.0.0"
+
+[dependencies.concordium-std]
+default-features = false
+path = "../concordium-rust-smart-contracts/concordium-std"
+version = "6.1.1"
+
 [dependencies]
-concordium-cis2 = "3.0.0"
-concordium-std = {version = "6.1.0", default-features = false}
 sale-utils = {path = "../sale-utils"}
+
+[dev-dependencies.concordium-std]
+features = ["concordium-quickcheck"]
+path = "../concordium-rust-smart-contracts/concordium-std"
+version = "6.1.1"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -29,6 +41,3 @@ crate-type = ["cdylib", "rlib"]
 [profile.release]
 codegen-units = 1
 opt-level = "s"
-
-[dev-dependencies]
-concordium-std = {version = "6.1.0", features = ["concordium-quickcheck"]}

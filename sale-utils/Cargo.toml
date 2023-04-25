@@ -1,26 +1,28 @@
 [package]
-name = "sale-utils"
-description = "Utilities for ovl-sale-ccd-public."
-version = "0.1.0"
 authors = ["daratao"]
+description = "Utilities for ovl-sale-ccd-public."
 edition = "2021"
-license = "MPL-2.0"
-publish = false
 homepage = "https://overlay.global/"
+license = "MPL-2.0"
+name = "sale-utils"
+publish = false
 repository = "https://github.com/overlaydao/overlay-sales"
 rust-version = "1.68.1"
+version = "0.1.0"
 
 [features]
 default = ["std"]
 std = ["concordium-std/std"]
 u256_amount = []
 
-[dependencies]
-concordium-cis2 = "3.0.0"
+[dependencies.concordium-cis2]
+path = "../concordium-rust-smart-contracts/concordium-cis2"
+version = "3.0.0"
 
 [dependencies.concordium-std]
 default-features = false
-version = "6.1.0"
+path = "../concordium-rust-smart-contracts/concordium-std"
+version = "6.1.1"
 
 [lib]
 crate-type = ["rlib"]
