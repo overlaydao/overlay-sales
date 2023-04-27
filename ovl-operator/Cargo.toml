@@ -1,0 +1,43 @@
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+authors = ["daratao <newsnow.bck@gmail.com>"]
+description = "This is a smart contract on Concordium, which will be used as the operator when Overlay team calls the sale contracts"
+edition = "2021"
+homepage = "https://overlay.global/"
+license = "MPL-2.0"
+name = "ovl_operator"
+publish = false
+repository = "https://github.com/overlaydao/overlay-sales"
+rust-version = "1.68.1"
+version = "0.1.0"
+
+[features]
+crypto-primitives = ["concordium-std/crypto-primitives"]
+default = ["std", "crypto-primitives"]
+std = ["concordium-std/std", "concordium-cis2/std"]
+wasm-test = ["concordium-std/wasm-test", "concordium-std/concordium-quickcheck"]
+
+[dependencies.concordium-cis2]
+path = "../concordium-rust-smart-contracts/concordium-cis2"
+version = "3.0.0"
+
+[dependencies.concordium-std]
+default-features = false
+path = "../concordium-rust-smart-contracts/concordium-std"
+version = "6.1.1"
+
+[dependencies]
+sale-utils = {path = "../sale-utils"}
+
+[dev-dependencies.concordium-std]
+features = ["concordium-quickcheck"]
+path = "../concordium-rust-smart-contracts/concordium-std"
+version = "6.1.1"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
