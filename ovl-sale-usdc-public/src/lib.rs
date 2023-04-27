@@ -13,7 +13,7 @@ use state::{State, *};
 #[derive(Debug, Serialize, SchemaType)]
 pub struct InitParams {
     /// Contract owner
-    pub(crate) operator: Address,
+    pub operator: Address,
     /// cis2 contract for usdc token
     pub usdc_contract: ContractAddress,
     /// Account of the administrator of the entity running the IDO
@@ -96,10 +96,18 @@ fn contract_set_status<S: HasStateApi>(
     ctx: &impl HasReceiveContext,
     host: &mut impl HasHost<State<S>, StateApiType = S>,
 ) -> ContractResult<()> {
-    ensure!(
-        ctx.sender().matches_account(&ctx.owner()),
-        ContractError::Unauthorized
-    );
+    if let Address::Contract(contract) = ctx.sender() {
+        ensure!(
+            ctx.sender().matches_contract(&contract),
+            ContractError::Unauthorized
+        );
+    } else {
+        ensure!(
+            ctx.sender().matches_account(&ctx.owner()),
+            ContractError::Unauthorized
+        );
+    };
+
     let status: SaleStatus = ctx.parameter_cursor().get()?;
     host.state_mut().status = status;
 
