@@ -19,12 +19,12 @@ mod tests {
     const ACCOUNT1: AccountAddress = AccountAddress([1u8; 32]);
     const ACCOUNT2: AccountAddress = AccountAddress([2u8; 32]);
 
-    const KEY0: [u8; 64] = [
-        41, 89, 149, 52, 220, 116, 206, 129, 30, 45, 49, 140, 88, 111, 167, 148, 20, 127, 177, 170,
-        140, 41, 75, 169, 60, 61, 81, 169, 220, 71, 5, 231, 8, 211, 250, 223, 44, 39, 123, 51, 101,
-        19, 5, 83, 106, 180, 107, 46, 184, 236, 224, 126, 222, 95, 136, 71, 4, 215, 10, 37, 43, 82,
-        120, 12,
-    ];
+    // const KEY0: [u8; 64] = [
+    //     41, 89, 149, 52, 220, 116, 206, 129, 30, 45, 49, 140, 88, 111, 167, 148, 20, 127, 177, 170,
+    //     140, 41, 75, 169, 60, 61, 81, 169, 220, 71, 5, 231, 8, 211, 250, 223, 44, 39, 123, 51, 101,
+    //     19, 5, 83, 106, 180, 107, 46, 184, 236, 224, 126, 222, 95, 136, 71, 4, 215, 10, 37, 43, 82,
+    //     120, 12,
+    // ];
 
     const KEY1: [u8; 64] = [
         183, 53, 101, 173, 212, 166, 174, 137, 79, 55, 245, 87, 113, 225, 62, 115, 195, 27, 109,
@@ -436,5 +436,89 @@ mod tests {
         let crypto_primitives = TestCryptoPrimitives::new();
         let result: ContractResult<_> = contract_invoke_sale(&ctx, &mut host, &crypto_primitives);
         claim!(result.is_ok(), "Results in rejection.");
+    }
+
+    #[concordium_test]
+    #[cfg(feature = "crypto-primitives")]
+    fn test_add_key_fail_with_only_one_sigs() {
+        let crypto_primitives = TestCryptoPrimitives::new();
+        let mut state_builder = TestStateBuilder::new();
+        let mut state = State {
+            operators: state_builder.new_map(),
+        };
+
+        // initial state
+        let ops1 = OperatorWithKeyParam {
+            account: ACCOUNT1,
+            public_key: PUBKEY1,
+        };
+        let ops2 = OperatorWithKeyParam {
+            account: ACCOUNT2,
+            public_key: PUBKEY2,
+        };
+
+        let mut expected_operators = state_builder.new_map();
+        for v in vec![&ops1, &ops2] {
+            state.operators.insert(v.account, v.public_key);
+            expected_operators.insert(v.account, v.public_key);
+        }
+
+        let message = PermitMessage {
+            contract_address: ContractAddress {
+                index: 10,
+                subindex: 0,
+            },
+            entry_point: OwnedEntrypointName::new_unchecked("addOperatorKeys".into()),
+            action: PermitAction::AddKey,
+            timestamp: Timestamp::from_timestamp_millis(100),
+        };
+
+        let message_hash = crypto_primitives.hash_sha2_256(&to_bytes(&message)).0;
+
+        let sig1: Signature = Keypair::from_bytes(&KEY1).unwrap().sign(&message_hash);
+
+        let mut signatures = BTreeSet::new();
+        signatures.insert((ACCOUNT1, SignatureEd25519(sig1.to_bytes())));
+
+        let operators: Vec<OperatorWithKeyParam> = vec![OperatorWithKeyParam {
+            account: ACCOUNT0,
+            public_key: PUBKEY0,
+        }];
+
+        //
+        let params = UpdatePublicKeyParams {
+            operators,
+            signatures,
+            message,
+        };
+
+        let mut host = TestHost::new(state, state_builder);
+
+        let params_bytes = to_bytes(&params);
+        let mut ctx = receive_context(
+            ACCOUNT1,
+            ACCOUNT1,
+            Address::from(ACCOUNT1),
+            Timestamp::from_timestamp_millis(15),
+            &params_bytes,
+        );
+        ctx.set_named_entrypoint(OwnedEntrypointName::new_unchecked("addOperatorKeys".into()));
+
+        let result: ContractResult<_> = contract_add_operators(&ctx, &mut host, &crypto_primitives);
+        claim!(result.is_err(), "Should cause error.");
+        claim_eq!(
+            result.expect_err_report("user deposit should reject"),
+            ContractError::Unauthorized,
+            "should reject with Unauthorized"
+        );
+        claim_eq!(
+            host.state().operators.iter().count(),
+            2,
+            "there should be two operators now."
+        );
+        claim!(
+            compare_operators(&host.state().operators, &expected_operators),
+            "both operators should be matched."
+        );
     }
 }
