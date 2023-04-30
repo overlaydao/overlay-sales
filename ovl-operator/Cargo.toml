@@ -35,6 +35,10 @@ features = ["concordium-quickcheck"]
 path = "../concordium-rust-smart-contracts/concordium-std"
 version = "6.1.1"
 
+[dev-dependencies]
+concordium-rust-sdk = {git = "https://github.com/Concordium/concordium-rust-sdk", rev = "35cd980ba4c6ff63079de4498f3a52953b2da4ac"}
+ed25519-dalek = "=1.0"
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
