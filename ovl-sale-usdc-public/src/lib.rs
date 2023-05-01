@@ -96,9 +96,10 @@ fn contract_set_status<S: HasStateApi>(
     ctx: &impl HasReceiveContext,
     host: &mut impl HasHost<State<S>, StateApiType = S>,
 ) -> ContractResult<()> {
+    // #[Todo] Only contractAccount should be allowed?
     if let Address::Contract(contract) = ctx.sender() {
         ensure!(
-            ctx.sender().matches_contract(&contract),
+            host.state().operator.matches_contract(&contract),
             ContractError::Unauthorized
         );
     } else {
