@@ -190,7 +190,8 @@ mod tests {
             timestamp: Timestamp::from_timestamp_millis(100),
         };
 
-        let message_hash = crypto_primitives.hash_sha2_256(&to_bytes(&message)).0;
+        let message_bytes = to_bytes(&message);
+        let message_hash = crypto_primitives.hash_sha2_256(&message_bytes).0;
 
         let sig1: Signature = Keypair::from_bytes(&KEY1).unwrap().sign(&message_hash);
         let sig2: Signature = Keypair::from_bytes(&KEY2).unwrap().sign(&message_hash);

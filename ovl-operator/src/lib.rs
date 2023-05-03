@@ -148,50 +148,50 @@ fn contract_init<S: HasStateApi>(
 // ============================================================
 // Common
 // ============================================================
-/// Part of the parameter type for PermitMessage.
-#[derive(Debug, Serialize, SchemaType, Clone, PartialEq, Eq)]
-enum PermitAction {
-    AddKey,
-    RemoveKey,
-    Upgrade,
-    Invoke(
-        /// The invoking address.
-        ContractAddress,
-        /// The function to call on the invoking contract.
-        OwnedEntrypointName,
-    ),
-}
+// /// Part of the parameter type for PermitMessage.
+// #[derive(Debug, Serialize, SchemaType, Clone, PartialEq, Eq)]
+// enum PermitAction {
+//     AddKey,
+//     RemoveKey,
+//     Upgrade,
+//     Invoke(
+//         /// The invoking address.
+//         ContractAddress,
+//         /// The function to call on the invoking contract.
+//         OwnedEntrypointName,
+//     ),
+// }
 
-/// Part of the parameter type for calling this contract.
-/// Specifies the message that is signed.
-#[derive(SchemaType, Serialize, Debug)]
-struct PermitMessage {
-    /// The contract_address that the signature is intended for.
-    contract_address: ContractAddress,
-    /// The entry_point that the signature is intended for.
-    entry_point: OwnedEntrypointName,
-    /// Enum to identify the action.
-    action: PermitAction,
-    /// A timestamp to make signatures expire.
-    timestamp: Timestamp,
-}
+// /// Part of the parameter type for calling this contract.
+// /// Specifies the message that is signed.
+// #[derive(SchemaType, Serialize, Debug)]
+// struct PermitMessage {
+//     /// The contract_address that the signature is intended for.
+//     contract_address: ContractAddress,
+//     /// The entry_point that the signature is intended for.
+//     entry_point: OwnedEntrypointName,
+//     /// Enum to identify the action.
+//     action: PermitAction,
+//     /// A timestamp to make signatures expire.
+//     timestamp: Timestamp,
+// }
 
-/// Part of the parameter type for calling this contract.
-/// Specifies the message that is signed.
-#[derive(SchemaType, Serialize, Debug)]
-struct PermitMessageWithParameter {
-    /// The contract_address that the signature is intended for.
-    contract_address: ContractAddress,
-    /// The entry_point that the signature is intended for.
-    entry_point: OwnedEntrypointName,
-    /// Enum to identify the action.
-    action: PermitAction,
-    /// A timestamp to make signatures expire.
-    timestamp: Timestamp,
-    /// The serialized parameter that should be forwarded to callee entrypoint.
-    #[concordium(size_length = 2)]
-    parameter: Vec<u8>,
-}
+// /// Part of the parameter type for calling this contract.
+// /// Specifies the message that is signed.
+// #[derive(SchemaType, Serialize, Debug)]
+// struct PermitMessageWithParameter {
+//     /// The contract_address that the signature is intended for.
+//     contract_address: ContractAddress,
+//     /// The entry_point that the signature is intended for.
+//     entry_point: OwnedEntrypointName,
+//     /// Enum to identify the action.
+//     action: PermitAction,
+//     /// A timestamp to make signatures expire.
+//     timestamp: Timestamp,
+//     /// The serialized parameter that should be forwarded to callee entrypoint.
+//     #[concordium(size_length = 2)]
+//     parameter: Vec<u8>,
+// }
 
 // ============================================================
 // Entrypoint for self contract
