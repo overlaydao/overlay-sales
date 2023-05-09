@@ -41,11 +41,13 @@ pub enum CustomContractError {
     NotSetTge,                             //
     NotSetProjectToken,                    //
     Inappropriate,                         //
-    DisabledForNow,                        //
-    AccountDuplicated,
-    WrongContract,
-    Expired,
-    NoPublicKey,
+    DisabledForNow,                        //30
+    AccountDuplicated,                     //
+    WrongContract,                         //
+    WrongEntrypoint,                       //
+    WrongAction,                           //
+    Expired,                               //35
+    NoPublicKey,                           //
 }
 
 impl From<CustomContractError> for ContractError {
