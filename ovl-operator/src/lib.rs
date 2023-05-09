@@ -142,6 +142,10 @@ fn contract_init<S: HasStateApi>(
     state_builder: &mut StateBuilder<S>,
 ) -> InitResult<State<S>> {
     let params: InitParams = ctx.parameter_cursor().get()?;
+    ensure!(
+        params.operators.len() > 1,
+        CustomContractError::Inappropriate.into()
+    );
     Ok(State::new(state_builder, params.operators))
 }
 
@@ -472,4 +476,25 @@ fn contract_invoke_sale<S: HasStateApi>(
         },
         None => Ok(RawReturnValue(None)),
     }
+}
+
+type ViewOperatorsResponse = Vec<(AccountAddress, PublicKeyEd25519)>;
+
+#[receive(
+    contract = "ovl_operator",
+    name = "viewOperators",
+    return_value = "ViewOperatorsResponse"
+)]
+fn contract_view_participants<S: HasStateApi>(
+    _ctx: &impl HasReceiveContext,
+    host: &impl HasHost<State<S>, StateApiType = S>,
+) -> ReceiveResult<ViewOperatorsResponse> {
+    let state = host.state();
+
+    let mut ret: Vec<(AccountAddress, PublicKeyEd25519)> = Vec::new();
+    for (addr, key) in state.operators.iter() {
+        ret.push((*addr, *key));
+    }
+
+    Ok(ret)
 }
