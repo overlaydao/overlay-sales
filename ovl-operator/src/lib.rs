@@ -40,7 +40,7 @@ impl<S: HasStateApi> State<S> {
     fn check_auth(
         &self,
         action: PermitAction,
-        message: &PermitMessage,
+        message: &PermitMessageWithParameter,
         signatures: &BTreeSet<(AccountAddress, SignatureEd25519)>,
         ctx: &impl HasReceiveContext,
         crypto_primitives: &impl HasCryptoPrimitives,
@@ -49,7 +49,7 @@ impl<S: HasStateApi> State<S> {
         ensure_eq!(
             message.action,
             action,
-            CustomContractError::WrongContract.into()
+            CustomContractError::WrongAction.into()
         );
 
         // Check that the message was intended for this contract.
@@ -63,7 +63,7 @@ impl<S: HasStateApi> State<S> {
         ensure_eq!(
             message.entry_point.as_entrypoint_name(),
             ctx.named_entrypoint().as_entrypoint_name(),
-            CustomContractError::WrongContract.into()
+            CustomContractError::WrongEntrypoint.into()
         );
 
         // Check signature is not expired.
@@ -150,54 +150,6 @@ fn contract_init<S: HasStateApi>(
 }
 
 // ============================================================
-// Common
-// ============================================================
-// /// Part of the parameter type for PermitMessage.
-// #[derive(Debug, Serialize, SchemaType, Clone, PartialEq, Eq)]
-// enum PermitAction {
-//     AddKey,
-//     RemoveKey,
-//     Upgrade,
-//     Invoke(
-//         /// The invoking address.
-//         ContractAddress,
-//         /// The function to call on the invoking contract.
-//         OwnedEntrypointName,
-//     ),
-// }
-
-// /// Part of the parameter type for calling this contract.
-// /// Specifies the message that is signed.
-// #[derive(SchemaType, Serialize, Debug)]
-// struct PermitMessage {
-//     /// The contract_address that the signature is intended for.
-//     contract_address: ContractAddress,
-//     /// The entry_point that the signature is intended for.
-//     entry_point: OwnedEntrypointName,
-//     /// Enum to identify the action.
-//     action: PermitAction,
-//     /// A timestamp to make signatures expire.
-//     timestamp: Timestamp,
-// }
-
-// /// Part of the parameter type for calling this contract.
-// /// Specifies the message that is signed.
-// #[derive(SchemaType, Serialize, Debug)]
-// struct PermitMessageWithParameter {
-//     /// The contract_address that the signature is intended for.
-//     contract_address: ContractAddress,
-//     /// The entry_point that the signature is intended for.
-//     entry_point: OwnedEntrypointName,
-//     /// Enum to identify the action.
-//     action: PermitAction,
-//     /// A timestamp to make signatures expire.
-//     timestamp: Timestamp,
-//     /// The serialized parameter that should be forwarded to callee entrypoint.
-//     #[concordium(size_length = 2)]
-//     parameter: Vec<u8>,
-// }
-
-// ============================================================
 // Entrypoint for self contract
 // ============================================================
 
@@ -210,7 +162,7 @@ pub struct UpdatePublicKeyParams {
     /// Signatures of those who approve calling the contract.
     signatures: BTreeSet<(AccountAddress, SignatureEd25519)>,
     /// Message that was signed.
-    message: PermitMessage,
+    message: PermitMessageWithParameter,
 }
 
 /// Register a public key for a given account. The corresponding private
@@ -310,7 +262,7 @@ struct UpgradeParams {
     /// Signatures of those who approve upgrading the contract.
     signatures: BTreeSet<(AccountAddress, SignatureEd25519)>,
     /// Message that was signed.
-    message: PermitMessage,
+    message: PermitMessageWithParameter,
 }
 
 /// Upgrade contract.
@@ -419,7 +371,7 @@ fn contract_invoke_sale<S: HasStateApi>(
     ensure_eq!(
         params.message.entry_point,
         ctx.named_entrypoint(),
-        CustomContractError::WrongContract.into()
+        CustomContractError::WrongEntrypoint.into()
     );
 
     // Check signature is not expired.
