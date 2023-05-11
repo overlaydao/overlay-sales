@@ -156,9 +156,9 @@ fn contract_init<S: HasStateApi>(
 /// The parameter type for the contract function `addOperatorKeys`.
 #[derive(Debug, Serialize, SchemaType)]
 pub struct UpdatePublicKeyParams {
-    /// Contract operators
-    #[concordium(size_length = 1)]
-    operators: Vec<OperatorWithKeyParam>,
+    // /// Contract operators
+    // #[concordium(size_length = 1)]
+    // operators: Vec<OperatorWithKeyParam>,
     /// Signatures of those who approve calling the contract.
     signatures: BTreeSet<(AccountAddress, SignatureEd25519)>,
     /// Message that was signed.
@@ -199,8 +199,10 @@ fn contract_add_operators<S: HasStateApi>(
         crypto_primitives,
     )?;
 
+    let operators: Vec<OperatorWithKeyParam> = from_bytes(&params.message.parameter).unwrap();
+
     // execute a specific operation of this entrypoint
-    for param in params.operators {
+    for param in operators {
         // Register the public key.
         host.state_mut()
             .add_operator(&param.account, &param.public_key)?;
@@ -242,8 +244,10 @@ fn contract_remove_operators<S: HasStateApi>(
         crypto_primitives,
     )?;
 
+    let operators: Vec<OperatorWithKeyParam> = from_bytes(&params.message.parameter).unwrap();
+
     // execute a specific operation of this entrypoint
-    for param in params.operators {
+    for param in operators {
         // Delete the public key.
         host.state_mut().remove_operator(&param.account)?;
     }
