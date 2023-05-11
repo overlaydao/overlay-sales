@@ -19,12 +19,12 @@ mod tests {
     const ACCOUNT1: AccountAddress = AccountAddress([1u8; 32]);
     const ACCOUNT2: AccountAddress = AccountAddress([2u8; 32]);
 
-    // const KEY0: [u8; 64] = [
-    //     41, 89, 149, 52, 220, 116, 206, 129, 30, 45, 49, 140, 88, 111, 167, 148, 20, 127, 177, 170,
-    //     140, 41, 75, 169, 60, 61, 81, 169, 220, 71, 5, 231, 8, 211, 250, 223, 44, 39, 123, 51, 101,
-    //     19, 5, 83, 106, 180, 107, 46, 184, 236, 224, 126, 222, 95, 136, 71, 4, 215, 10, 37, 43, 82,
-    //     120, 12,
-    // ];
+    const KEY0: [u8; 64] = [
+        41, 89, 149, 52, 220, 116, 206, 129, 30, 45, 49, 140, 88, 111, 167, 148, 20, 127, 177, 170,
+        140, 41, 75, 169, 60, 61, 81, 169, 220, 71, 5, 231, 8, 211, 250, 223, 44, 39, 123, 51, 101,
+        19, 5, 83, 106, 180, 107, 46, 184, 236, 224, 126, 222, 95, 136, 71, 4, 215, 10, 37, 43, 82,
+        120, 12,
+    ];
 
     const KEY1: [u8; 64] = [
         183, 53, 101, 173, 212, 166, 174, 137, 79, 55, 245, 87, 113, 225, 62, 115, 195, 27, 109,
@@ -171,7 +171,7 @@ mod tests {
             public_key: PUBKEY2,
         };
 
-        for v in vec![&ops1, &ops2] {
+        for v in vec![&ops0, &ops1] {
             state.operators.insert(v.account, v.public_key);
         }
 
@@ -180,7 +180,12 @@ mod tests {
             expected_operators.insert(v.account, v.public_key);
         }
 
-        let message = PermitMessage {
+        let operators: Vec<OperatorWithKeyParam> = vec![OperatorWithKeyParam {
+            account: ACCOUNT2,
+            public_key: PUBKEY2,
+        }];
+
+        let message = PermitMessageWithParameter {
             contract_address: ContractAddress {
                 index: 10,
                 subindex: 0,
@@ -188,26 +193,21 @@ mod tests {
             entry_point: OwnedEntrypointName::new_unchecked("addOperatorKeys".into()),
             action: PermitAction::AddKey,
             timestamp: Timestamp::from_timestamp_millis(100),
+            parameter: to_bytes(&operators),
         };
 
         let message_bytes = to_bytes(&message);
         let message_hash = crypto_primitives.hash_sha2_256(&message_bytes).0;
 
+        let sig0: Signature = Keypair::from_bytes(&KEY0).unwrap().sign(&message_hash);
         let sig1: Signature = Keypair::from_bytes(&KEY1).unwrap().sign(&message_hash);
-        let sig2: Signature = Keypair::from_bytes(&KEY2).unwrap().sign(&message_hash);
 
         let mut signatures = BTreeSet::new();
+        signatures.insert((ACCOUNT0, SignatureEd25519(sig0.to_bytes())));
         signatures.insert((ACCOUNT1, SignatureEd25519(sig1.to_bytes())));
-        signatures.insert((ACCOUNT2, SignatureEd25519(sig2.to_bytes())));
-
-        let operators: Vec<OperatorWithKeyParam> = vec![OperatorWithKeyParam {
-            account: ACCOUNT0,
-            public_key: PUBKEY0,
-        }];
 
         //
         let params = UpdatePublicKeyParams {
-            operators,
             signatures,
             message,
         };
@@ -269,7 +269,12 @@ mod tests {
             expected_operators.insert(v.account, v.public_key);
         }
 
-        let message = PermitMessage {
+        let operators: Vec<OperatorWithKeyParam> = vec![OperatorWithKeyParam {
+            account: ACCOUNT0,
+            public_key: PUBKEY0,
+        }];
+
+        let message = PermitMessageWithParameter {
             contract_address: ContractAddress {
                 index: 10,
                 subindex: 0,
@@ -277,6 +282,7 @@ mod tests {
             entry_point: OwnedEntrypointName::new_unchecked("removeOperatorKeys".into()),
             action: PermitAction::RemoveKey,
             timestamp: Timestamp::from_timestamp_millis(100),
+            parameter: to_bytes(&operators),
         };
 
         let message_hash = crypto_primitives.hash_sha2_256(&to_bytes(&message)).0;
@@ -288,14 +294,8 @@ mod tests {
         signatures.insert((ACCOUNT1, SignatureEd25519(sig1.to_bytes())));
         signatures.insert((ACCOUNT2, SignatureEd25519(sig2.to_bytes())));
 
-        let operators: Vec<OperatorWithKeyParam> = vec![OperatorWithKeyParam {
-            account: ACCOUNT0,
-            public_key: PUBKEY0,
-        }];
-
         //
         let params = UpdatePublicKeyParams {
-            operators,
             signatures,
             message,
         };
@@ -464,7 +464,12 @@ mod tests {
             expected_operators.insert(v.account, v.public_key);
         }
 
-        let message = PermitMessage {
+        let operators: Vec<OperatorWithKeyParam> = vec![OperatorWithKeyParam {
+            account: ACCOUNT0,
+            public_key: PUBKEY0,
+        }];
+
+        let message = PermitMessageWithParameter {
             contract_address: ContractAddress {
                 index: 10,
                 subindex: 0,
@@ -472,6 +477,7 @@ mod tests {
             entry_point: OwnedEntrypointName::new_unchecked("addOperatorKeys".into()),
             action: PermitAction::AddKey,
             timestamp: Timestamp::from_timestamp_millis(100),
+            parameter: to_bytes(&operators),
         };
 
         let message_hash = crypto_primitives.hash_sha2_256(&to_bytes(&message)).0;
@@ -481,14 +487,8 @@ mod tests {
         let mut signatures = BTreeSet::new();
         signatures.insert((ACCOUNT1, SignatureEd25519(sig1.to_bytes())));
 
-        let operators: Vec<OperatorWithKeyParam> = vec![OperatorWithKeyParam {
-            account: ACCOUNT0,
-            public_key: PUBKEY0,
-        }];
-
         //
         let params = UpdatePublicKeyParams {
-            operators,
             signatures,
             message,
         };
