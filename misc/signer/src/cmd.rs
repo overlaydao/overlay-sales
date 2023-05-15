@@ -11,10 +11,6 @@ pub mod sign;
 pub mod smc;
 
 pub fn timestamp(h: i64) -> anyhow::Result<()> {
-    // let t = crate::timestamp_from_str("2023-05-20T00:00:00+09:00")?;
-    // let t = crate::timestamp_from_str("2023-05-20T00:00:00+00:00")?;
-    // let t = crate::timestamp_from_str("2023-05-20T00:00:00Z")?;
-
     let utc_datetime: DateTime<Utc> = Utc::now();
     println!("{} <= UTC", utc_datetime.to_rfc3339());
 
@@ -30,18 +26,5 @@ pub fn timestamp(h: i64) -> anyhow::Result<()> {
     let s: i64 = utc_datetime.timestamp_millis() + h * 60 * 60 * 1000;
     println!("{h:?} hour later: {s:?}");
 
-    Ok(())
-}
-
-pub fn traverse(path: &Path, cb: &mut dyn FnMut(PathBuf)) -> anyhow::Result<()> {
-    for e in read_dir(path)? {
-        let e = e?;
-        let path = e.path();
-        if path.is_dir() {
-            traverse(&path, cb)?;
-        } else if path.is_file() {
-            cb(path);
-        }
-    }
     Ok(())
 }

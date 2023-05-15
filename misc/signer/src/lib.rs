@@ -10,6 +10,10 @@ use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use concordium_rust_sdk::types::transactions::EncodedPayload;
+use concordium_rust_sdk::types::AccountTransactionEffects;
+use concordium_rust_sdk::types::BlockItemSummary;
+use concordium_rust_sdk::types::BlockItemSummaryDetails;
+use concordium_rust_sdk::types::TransactionType;
 use concordium_rust_sdk::{
     common::types::{KeyPair, Signature, TransactionTime},
     eddsa_ed25519,
@@ -123,95 +127,22 @@ pub enum Commands {
     UpdateKeyTest {
         #[arg(short, default_value = "add")]
         mode: String,
-        // ex1: Option<String>,
-        // ex2: Vec<String>,
     },
 }
 
-async fn broadcast(client: &mut Client, item: BlockItem<EncodedPayload>) -> anyhow::Result<()> {
+async fn broadcast(
+    client: &mut Client,
+    item: BlockItem<EncodedPayload>,
+) -> anyhow::Result<BlockItemSummary> {
     let transaction_hash = client.send_block_item(&item).await?;
     println!("Transaction {} submitted.", transaction_hash);
 
     let (bh, bs) = client.wait_until_finalized(&transaction_hash).await?;
     println!("Transaction finalized in block {}.", bh);
-    println!("The outcome is {:#?}", bs);
+    println!("Energy Cost: {:#?}", bs.energy_cost);
+    println!("Detail: {:#?}", bs.details);
 
-    Ok(())
-}
-
-pub fn filepath_exp() -> Result<()> {
-    // let file_str = "src/bin/path_is.rs";
-    // let dir_str = "target";
-    // let path_file = Path::new(file_str);
-    // let path_dir = Path::new(dir_str);
-    // println!("{} is file: {}", file_str, path_file.is_file());
-    // println!("{} is directory: {}", dir_str, path_dir.is_dir());
-    // println!("{} is absolute: {}", dir_str, path_dir.is_absolute());
-    // println!("{} is relative: {}", dir_str, path_dir.is_relative());
-    // println!("{} has root: {}", dir_str, path_dir.has_root());
-    // println!("{} exists: {}", file_str, path_file.exists());
-    // println!(
-    //     "{} starts with 'src': {}",
-    //     file_str,
-    //     path_file.starts_with("src")
-    // );
-    // println!(
-    //     "{} ends with 'path_is.rs': {}",
-    //     file_str,
-    //     path_file.ends_with("path_is.rs")
-    // );
-
-    let data_path = Path::new("data/msg_rm_key.json");
-    if validate_file_path(&data_path) {
-        bail!("Invalid json filepath.")
-    }
-    let json = std::fs::read_to_string(data_path).unwrap();
-    println!("{:?}", json);
-
-    Ok(())
-}
-
-pub fn datetime_exp() -> Result<()> {
-    let date_time: NaiveDateTime = NaiveDate::from_ymd_opt(2017, 11, 12)
-        .unwrap()
-        .and_hms_opt(17, 33, 44)
-        .unwrap();
-    println!(
-        "Number of seconds between 1970-01-01 00:00:00 and {} is {}.",
-        date_time,
-        date_time.timestamp()
-    );
-
-    // let d = NaiveDate::from_ymd_opt(2017, 11, 12).unwrap();
-    // let t = NaiveTime::from_hms_milli_opt(17, 33, 44, 000).unwrap();
-    // let dt: NaiveDateTime = d.and_time(t);
-    // println!("{}", dt.timestamp_millis());
-
-    // let no_timezone = NaiveDateTime::parse_from_str("2017-11-12 17:33:44", "%Y-%m-%d %H:%M:%S")?;
-    // println!("{}", no_timezone.timestamp_millis());
-
-    let rfc3339 = DateTime::parse_from_rfc3339("2017-11-12T17:33:44+00:00")?;
-    println!("{}", rfc3339.timestamp_millis());
-    println!("{}", rfc3339.format("%a %b %e %T %Y"));
-
-    let rfc3339 = DateTime::parse_from_rfc3339("2017-11-12T17:33:44+09:00")?;
-    let rfc3339 = rfc3339 + Duration::hours(9);
-    println!("{}", rfc3339.timestamp_millis());
-    println!("{}", rfc3339.format("%a %b %e %T %Y"));
-
-    // let dt: Result<DateTime<FixedOffset>, _> =
-    //     DateTime::parse_from_rfc3339("2018-12-07T19:31:28+09:00");
-    // println!("DateTime::parse_from_rfc3339: {:?}", dt);
-
-    // let dt: Result<DateTime<FixedOffset>, _> =
-    //     DateTime::parse_from_str("2018/12/07 19:31:28 +0900", "%Y/%m/%d %H:%M:%S %z");
-    // println!("DateTime::parse_from_str: {:?}", dt);
-
-    // let dt: Result<NaiveDateTime, _> =
-    //     NaiveDateTime::parse_from_str("2018/12/07 19:31:28", "%Y/%m/%d %H:%M:%S");
-    // println!("NaiveDateTime::parse_from_str: {:?}", dt);
-
-    Ok(())
+    Ok(bs)
 }
 
 pub fn get_keypair_from_wallet_keys(keys: &WalletAccount) -> anyhow::Result<&KeyPair> {
@@ -244,6 +175,19 @@ pub fn vec_to_arr<T, const N: usize>(v: Vec<T>) -> [T; N] {
         .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
 }
 
+pub fn traverse(path: &Path, cb: &mut dyn FnMut(PathBuf)) -> anyhow::Result<()> {
+    for e in read_dir(path)? {
+        let e = e?;
+        let path = e.path();
+        if path.is_dir() {
+            traverse(&path, cb)?;
+        } else if path.is_file() {
+            cb(path);
+        }
+    }
+    Ok(())
+}
+
 pub fn timestamp_from_str(ts: &str) -> Result<Timestamp> {
     let time = DateTime::parse_from_rfc3339(ts)?;
     // let time = timelimit + Duration::hours(9);
@@ -265,13 +209,56 @@ pub fn account_address_from_str(v: &str) -> Result<AccountAddress> {
     Ok(AccountAddress(address_bytes))
 }
 
-// pub fn account_address_from_byte(bytes: [u8; 32]) -> Result<String> {
-//     let mut encoded = String::with_capacity(50);
-//     let mut decoded: Vec<u8> = [1].iter().chain(bytes.iter()).map(|v| *v).collect();
-//     let decoded: [u8; 33] = decoded.try_into().unwrap();
-//     bs58::encode(decoded).with_check().into(&mut encoded)?;
-//     Ok(encoded)
-// }
+pub fn filepath_exp() -> Result<()> {
+    let data_path = Path::new("data/msg_rm_key.json");
+    if validate_file_path(&data_path) {
+        bail!("Invalid json filepath.")
+    }
+    let json = std::fs::read_to_string(data_path).unwrap();
+    println!("{:?}", json);
+
+    Ok(())
+}
+
+pub fn datetime_exp() -> Result<()> {
+    let date_time: NaiveDateTime = NaiveDate::from_ymd_opt(2017, 11, 12)
+        .unwrap()
+        .and_hms_opt(17, 33, 44)
+        .unwrap();
+    println!(
+        "Number of seconds between 1970-01-01 00:00:00 and {} is {}.",
+        date_time,
+        date_time.timestamp()
+    );
+
+    // let d = NaiveDate::from_ymd_opt(2017, 11, 12).unwrap();
+    // let t = NaiveTime::from_hms_milli_opt(17, 33, 44, 000).unwrap();
+    // let dt: NaiveDateTime = d.and_time(t);
+    // println!("{}", dt.timestamp_millis());
+
+    let rfc3339 = DateTime::parse_from_rfc3339("2017-11-12T17:33:44+00:00")?;
+    println!("{}", rfc3339.timestamp_millis());
+    println!("{}", rfc3339.format("%a %b %e %T %Y"));
+
+    let rfc3339 = DateTime::parse_from_rfc3339("2017-11-12T17:33:44+09:00")?;
+    let rfc3339 = rfc3339 + Duration::hours(9);
+    println!("{}", rfc3339.timestamp_millis());
+    println!("{}", rfc3339.format("%a %b %e %T %Y"));
+
+    // let dt: Result<DateTime<FixedOffset>, _> =
+    //     DateTime::parse_from_rfc3339("2018-12-07T19:31:28+09:00");
+    // println!("DateTime::parse_from_rfc3339: {:?}", dt);
+
+    // let dt: Result<DateTime<FixedOffset>, _> =
+    //     DateTime::parse_from_str("2018/12/07 19:31:28 +0900", "%Y/%m/%d %H:%M:%S %z");
+    // println!("DateTime::parse_from_str: {:?}", dt);
+
+    // let dt: Result<NaiveDateTime, _> =
+    //     NaiveDateTime::parse_from_str("2018/12/07 19:31:28", "%Y/%m/%d %H:%M:%S");
+    // println!("NaiveDateTime::parse_from_str: {:?}", dt);
+
+    Ok(())
+}
 
 pub async fn update_add_key_exp(mode: &str) -> Result<()> {
     let keys3: WalletAccount = WalletAccount::from_json_file("./keys/keys3.json")
@@ -419,59 +406,3 @@ pub async fn update_add_key_exp(mode: &str) -> Result<()> {
     println!("The outcome is {:#?}", bs);
     Ok(())
 }
-
-// fn prompt(name: &str) -> String {
-//     print!("{}", name);
-
-//     let mut line = String::new();
-//     std::io::stdout().flush().unwrap();
-//     std::io::stdin()
-//         .read_line(&mut line)
-//         .expect("Error: Could not read a line");
-
-//     return line.trim().to_string();
-// }
-
-// fn readline() -> anyhow::Result<String, String> {
-//     write!(std::io::stdout(), "> ").map_err(|e| e.to_string())?;
-//     std::io::stdout().flush().map_err(|e| e.to_string())?;
-//     let mut buffer = String::new();
-//     std::io::stdin()
-//         .read_line(&mut buffer)
-//         .map_err(|e| e.to_string())?;
-//     Ok(buffer)
-// }
-// fn respond(line: &str) -> Result<bool, String> {
-//     Ok(false)
-// }
-// fn test() -> () {
-//     loop {
-//         let input = prompt("> ");
-
-//         // let line = readline().unwrap();
-//         // let line = line.trim();
-//         // if line.is_empty() {
-//         //     continue;
-//         // }
-//         //   match respond(line) {
-//         //     Ok(quit) => {
-//         //         if quit {
-//         //             break;
-//         //         }
-//         //     }
-//         //     Err(err) => {
-//         //         write!(std::io::stdout(), "{err}").map_err(|e| e.to_string())?;
-//         //         std::io::stdout().flush().map_err(|e| e.to_string())?;
-//         //     }
-//         // }
-
-//         if input == "now" {
-//             let unixtime = SystemTime::now()
-//                 .duration_since(SystemTime::UNIX_EPOCH)
-//                 .unwrap();
-//             print!("Current Unix time is {:?}\n", unixtime);
-//         } else if input == "exit" {
-//             break;
-//         };
-//     }
-// }

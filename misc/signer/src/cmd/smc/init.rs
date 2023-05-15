@@ -18,7 +18,7 @@ use concordium_rust_sdk::{
         transactions::{
             send, BlockItem, EncodedPayload, InitContractPayload, UpdateContractPayload,
         },
-        AccountInfo, Nonce, WalletAccount,
+        AccountInfo, AccountTransactionEffects, BlockItemSummaryDetails, Nonce, WalletAccount,
     },
     v2::{BlockIdentifier, Client, Endpoint},
 };
@@ -75,7 +75,7 @@ fn create_init_pub_rido_usdc_exp() -> anyhow::Result<Vec<u8>> {
         )?),
         addr_bbb: Address::from(ContractAddress::new(4513, 0)),
         open_at: BTreeMap::from([
-            (timestamp_from_str("2023-05-18T00:00:00+09:00")?, Prior::TOP),
+            (timestamp_from_str("2023-04-18T00:00:00+09:00")?, Prior::TOP),
             (
                 timestamp_from_str("2023-05-18T10:00:00+09:00")?,
                 Prior::SECOND,
@@ -178,7 +178,23 @@ pub async fn initialize(contract: String) -> anyhow::Result<()> {
         amount,
     );
 
-    crate::broadcast(&mut client, item).await;
+    let _summary = crate::broadcast(&mut client, item).await?;
+
+    // if let Some(reason) = _summary.is_rejected_account_transaction() {
+    //     println!("Error occured! The reason is {:#?}", reason);
+    // } else {
+    //     if let BlockItemSummaryDetails::AccountTransaction(detail) = _summary.details {
+    //         println!("Cost: {:#?}", detail.cost);
+    //         match &detail.effects {
+    //             AccountTransactionEffects::ModuleDeployed { .. } => {},
+    //             AccountTransactionEffects::ContractInitialized { data } => {
+    //                 println!("Detail address: {:#?}", data.address);
+    //             },
+    //             AccountTransactionEffects::ContractUpdateIssued { .. } => {},
+    //             _ => {},
+    //         }
+    //     };
+    // }
 
     Ok(())
 }

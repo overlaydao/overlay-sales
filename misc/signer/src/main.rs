@@ -1,13 +1,8 @@
 #![allow(unused)]
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use concordium_rust_sdk::v2::{BlockIdentifier, Client, Endpoint};
-use core::time;
 use signer::*;
-use std::{
-    ffi::OsStr,
-    path::{Component, Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
@@ -15,11 +10,11 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Commands::Timestamp { hour }) => {
-            cmd::timestamp(hour);
+            cmd::timestamp(hour)?;
             Ok(())
         },
         Some(Commands::Nodeinfo { endpoint }) => {
-            cmd::node::nodeinfo(endpoint).await;
+            cmd::node::nodeinfo(endpoint).await?;
             Ok(())
         },
         Some(Commands::Keygen { filename }) => {
@@ -48,25 +43,22 @@ async fn main() -> Result<()> {
             Ok(())
         },
         Some(Commands::Init { contract }) => {
-            cmd::smc::init::initialize(contract).await;
+            cmd::smc::init::initialize(contract).await?;
             Ok(())
         },
         Some(Commands::UpdateKey) => {
-            cmd::smc::update::update_keys().await;
+            cmd::smc::update::update_keys().await?;
             Ok(())
         },
         Some(Commands::UpdateInvoke) => {
-            cmd::smc::update::invoke().await;
+            cmd::smc::update::invoke().await?;
             Ok(())
         },
         Some(Commands::UpdateKeyTest { mode }) => {
-            update_add_key_exp(&mode).await;
+            update_add_key_exp(&mode).await?;
             Ok(())
         },
         None => {
-            filepath_exp()?;
-            // datetime_exp();
-
             // let path = Path::new("data");
             // let mut files = Vec::new();
             // traverse(path, &mut |e| files.push(e)).unwrap();
