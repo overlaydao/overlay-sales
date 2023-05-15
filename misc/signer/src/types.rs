@@ -1,6 +1,6 @@
 use concordium_std::{
-    to_bytes, AccountAddress, Address, ContractAddress, OwnedEntrypointName, PublicKeyEd25519,
-    Serial, SignatureEd25519, Timestamp,
+    to_bytes, AccountAddress, Address, ContractAddress, Deserial, OwnedEntrypointName,
+    PublicKeyEd25519, Serial, SignatureEd25519, Timestamp,
 };
 use sale_utils::types::{PermitMessageWithParameter, Prior};
 use serde::Serialize;
@@ -15,7 +15,7 @@ pub mod pub_usdc {
 
     use super::*;
 
-    #[derive(Debug, Serial)]
+    #[derive(Debug, Serial, Deserial)]
     pub struct InitParams {
         /// Contract owner
         pub operator: Address,

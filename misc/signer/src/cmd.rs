@@ -11,6 +11,10 @@ pub mod sign;
 pub mod smc;
 
 pub fn timestamp(h: i64) -> anyhow::Result<()> {
+    // let t = crate::timestamp_from_str("2023-05-20T00:00:00+09:00")?;
+    // let t = crate::timestamp_from_str("2023-05-20T00:00:00+00:00")?;
+    // let t = crate::timestamp_from_str("2023-05-20T00:00:00Z")?;
+
     let utc_datetime: DateTime<Utc> = Utc::now();
     println!("{} <= UTC", utc_datetime.to_rfc3339());
 

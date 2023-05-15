@@ -1,7 +1,7 @@
 use crate::{
     account_address_from_str,
     config::{CONTRACT_PUB_RIDO_USDC, MODREF_PUB_RIDO_USDC},
-    get_keypair_from_wallet_keys,
+    get_keypair_from_wallet_keys, timestamp_from_str,
     types::*,
     vec_to_arr, CONTRACT_OPERATOR, INDEX_OPERATOR, MODREF_OPERATOR, NODE_ENDPOINT_V2,
 };
@@ -66,27 +66,6 @@ fn create_init_operators_exp() -> anyhow::Result<Vec<u8>> {
 }
 
 fn create_init_pub_rido_usdc_exp() -> anyhow::Result<Vec<u8>> {
-    let ops = vec![
-        (
-            "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
-            "61f2c1500d2694aff6d67cd1ec139f735de8ff6de1188ca3d9e2147ce8b49147",
-        ),
-        (
-            "4bXHyEX6pJT29X8Mmn8UmhLRbW4ApdciqSq8AX1JdMXqNFmvUc",
-            "69e5f3eba67291e2d5f10203f3d3d4c9542d4b02ccd156a229f0fafff3e81ba7",
-        ),
-    ];
-
-    let mut operators: Vec<operators::OperatorWithKeyParam> = Vec::new();
-    for (addr, pubkey) in ops {
-        let addr = account_address_from_str(addr).unwrap();
-        let pubkey: [u8; 32] = vec_to_arr(hex::decode(pubkey).unwrap());
-        operators.push(operators::OperatorWithKeyParam {
-            account: addr,
-            public_key: PublicKeyEd25519(pubkey),
-        });
-    }
-
     let params = pub_usdc::InitParams {
         operator: Address::from(ContractAddress::new(4513, 0)),
         usdc_contract: ContractAddress::new(3496, 0),
@@ -96,10 +75,13 @@ fn create_init_pub_rido_usdc_exp() -> anyhow::Result<Vec<u8>> {
         )?),
         addr_bbb: Address::from(ContractAddress::new(4513, 0)),
         open_at: BTreeMap::from([
-            (Timestamp::from_timestamp_millis(10), Prior::TOP),
-            (Timestamp::from_timestamp_millis(20), Prior::SECOND),
+            (timestamp_from_str("2023-05-18T00:00:00+09:00")?, Prior::TOP),
+            (
+                timestamp_from_str("2023-05-18T10:00:00+09:00")?,
+                Prior::SECOND,
+            ),
         ]),
-        close_at: Timestamp::from_timestamp_millis(30),
+        close_at: timestamp_from_str("2023-05-20T00:00:00+09:00")?,
         vesting_period: BTreeMap::from([
             (Duration::from_days(1), 25),
             (Duration::from_days(2), 40),
@@ -113,7 +95,7 @@ fn create_init_pub_rido_usdc_exp() -> anyhow::Result<Vec<u8>> {
     let param_encoded = hex::encode(to_bytes(&params));
 
     let param_byte = hex::decode(&param_encoded)?;
-    let init_param = from_bytes::<operators::InitParams>(&param_byte)?;
+    let init_param = from_bytes::<pub_usdc::InitParams>(&param_byte)?;
 
     Ok(to_bytes(&init_param))
 }
@@ -152,7 +134,7 @@ fn create_init_tx_item(
     BlockItem::AccountTransaction(tx)
 }
 
-pub async fn initialize() -> anyhow::Result<()> {
+pub async fn initialize(contract: String) -> anyhow::Result<()> {
     let mut client = Client::new(Endpoint::from_static(NODE_ENDPOINT_V2))
         .await
         .context("Cannot connect.")?;
@@ -167,8 +149,7 @@ pub async fn initialize() -> anyhow::Result<()> {
         .response;
 
     // #[Todo]
-    let mode = "ops";
-    let (modref, contract, init_params) = match mode {
+    let (modref, contract, init_params) = match contract.as_str() {
         "ops" => {
             let params_bytes = create_init_operators_exp()?;
             (MODREF_OPERATOR, CONTRACT_OPERATOR, params_bytes)
@@ -178,10 +159,14 @@ pub async fn initialize() -> anyhow::Result<()> {
             (MODREF_PUB_RIDO_USDC, CONTRACT_PUB_RIDO_USDC, params_bytes)
         },
         _ => {
-            let params_bytes = create_init_operators_exp()?;
-            (MODREF_OPERATOR, CONTRACT_OPERATOR, params_bytes)
+            println!("there is no contract!");
+            bail!("there is no contract!")
         },
     };
+
+    println!("{:?}", modref);
+    println!("{:?}", contract);
+    println!("{:?}", init_params);
 
     let amount = Amount::zero();
     let item = create_init_tx_item(
@@ -193,7 +178,7 @@ pub async fn initialize() -> anyhow::Result<()> {
         amount,
     );
 
-    crate::broadcast(&mut client, item);
+    crate::broadcast(&mut client, item).await;
 
     Ok(())
 }

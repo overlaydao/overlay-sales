@@ -114,7 +114,7 @@ pub enum Commands {
         mode: MessageType,
     },
     /// init contract
-    Init,
+    Init { contract: String },
     /// update contract
     UpdateKey,
     /// update contract
@@ -242,6 +242,14 @@ pub fn validate_file_path(path: &Path) -> bool {
 pub fn vec_to_arr<T, const N: usize>(v: Vec<T>) -> [T; N] {
     v.try_into()
         .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
+}
+
+pub fn timestamp_from_str(ts: &str) -> Result<Timestamp> {
+    let time = DateTime::parse_from_rfc3339(ts)?;
+    // let time = timelimit + Duration::hours(9);
+    Ok(Timestamp::from_timestamp_millis(
+        time.timestamp_millis() as u64
+    ))
 }
 
 pub fn account_address_from_str(v: &str) -> Result<AccountAddress> {

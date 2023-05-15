@@ -1,6 +1,6 @@
 use crate::{
-    account_address_from_str, config::INDEX_PUB_RIDO_USDC, get_keypair_from_wallet_keys, types::*,
-    vec_to_arr, MessageType, INDEX_OPERATOR,
+    account_address_from_str, config::INDEX_PUB_RIDO_USDC, get_keypair_from_wallet_keys,
+    timestamp_from_str, types::*, vec_to_arr, MessageType, INDEX_OPERATOR,
 };
 use anyhow::bail;
 use chrono::{DateTime, Duration};
@@ -170,14 +170,13 @@ fn create_permit_message(
     ts: String,
     params: Vec<u8>,
 ) -> anyhow::Result<PermitMessageWithParameter> {
-    let timelimit = DateTime::parse_from_rfc3339(ts.as_str())?;
-    // let timelimit = timelimit + Duration::hours(9);
+    let timestamp = timestamp_from_str(ts.as_str())?;
 
     let message = PermitMessageWithParameter {
         contract_address: ContractAddress { index, subindex: 0 },
         entry_point: OwnedEntrypointName::new_unchecked(method),
         action,
-        timestamp: Timestamp::from_timestamp_millis(timelimit.timestamp_millis() as u64),
+        timestamp,
         parameter: params,
     };
 

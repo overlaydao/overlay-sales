@@ -47,8 +47,8 @@ async fn main() -> Result<()> {
             cmd::sign::sign(&keys, data_path, mode)?;
             Ok(())
         },
-        Some(Commands::Init) => {
-            cmd::smc::init::initialize().await;
+        Some(Commands::Init { contract }) => {
+            cmd::smc::init::initialize(contract).await;
             Ok(())
         },
         Some(Commands::UpdateKey) => {
