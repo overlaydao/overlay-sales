@@ -1,0 +1,33 @@
+[package]
+edition = "2021"
+name = "signer"
+version = "0.1.0"
+
+[dependencies.concordium-std]
+default-features = false
+path = "../../concordium-rust-smart-contracts/concordium-std"
+version = "6.1.1"
+
+[dependencies]
+anyhow = "1.0.66"
+bs58 = {version = "0.4", features = ["check"]}
+chrono = "0.4.23"
+clap = {version = "4.2.5", features = ["derive"]}
+concordium-rust-sdk = {git = "https://github.com/Concordium/concordium-rust-sdk", rev = "concordium-rust-sdk/2.3.0"}
+ed25519-dalek = "=1.0"
+hex = "0.4.3"
+rand = "0.7.3"
+sale-utils = {path = "../../sale-utils"}
+serde = {version = "1.0.152", features = ["derive"]}
+serde_json = "1.0.91"
+sha2 = "0.10"
+tokio = {version = "1.21", features = ["full"]}
+tonic = {version = "0.8", features = ["tls", "tls-roots"]}
+# bcrypt = "^0.13.0"
+# csv = "1.1.6"
+# dotenvy = "0.15.6"
+# futures = "0.3.26"
+# rand_chacha = "0.3.1"
+# rand_core = "0.5.1"
+
+# reqwest = {version = "0.11.11", features = ["native-tls-alpn"]}

@@ -1,0 +1,10 @@
+[workspace]
+default-members = [
+  "signer",
+]
+
+members = [
+  "signer",
+]
+
+[workspace.dependencies]
