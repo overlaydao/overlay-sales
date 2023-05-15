@@ -311,6 +311,8 @@ fn contract_upgrade<S: HasStateApi>(
         crypto_primitives,
     )?;
 
+    // #[todo] Need to make sure params.module is approved by operators.
+
     // Trigger the upgrade.
     host.upgrade(params.module)?;
     // Call a migration function if provided.
