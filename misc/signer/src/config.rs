@@ -5,6 +5,8 @@ pub const NODE_ENDPOINT_V2_MAIN: &str = "https://grpc.mainnet.concordium.softwar
 
 pub const ACCOUNT_ADDRESS_SIZE: usize = 32;
 
+pub const INDEX_USDC: u64 = 3496;
+
 pub const CONTRACT_OPERATOR: &str = "ovl_operator";
 pub const MODREF_OPERATOR: &str =
     "0e2e594df9b11dbc4728195ab4a1d1437fbfc310acf51273b59306330209119d";

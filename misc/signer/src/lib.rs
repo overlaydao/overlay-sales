@@ -1,35 +1,25 @@
 #![allow(unused)]
-
 pub mod cmd;
 mod config;
 mod types;
 
-use crate::config::*;
+pub use crate::config::*;
 use crate::types::*;
 use anyhow::{bail, Context, Result};
-use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::DateTime;
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use concordium_rust_sdk::types::transactions::EncodedPayload;
-use concordium_rust_sdk::types::AccountTransactionEffects;
 use concordium_rust_sdk::types::BlockItemSummary;
-use concordium_rust_sdk::types::BlockItemSummaryDetails;
-use concordium_rust_sdk::types::TransactionType;
+
 use concordium_rust_sdk::{
     common::types::{KeyPair, Signature, TransactionTime},
-    eddsa_ed25519,
-    id::types::CredentialDataWithSigning,
     smart_contracts::common::Amount,
     types::{
-        hashes::{HashBytes, ModuleReferenceMarker},
         queries::ConsensusInfo,
         smart_contracts::{
-            concordium_contracts_common::AccountAddress as AA,
-            concordium_contracts_common::ContractAddress as CA, ModuleReference, OwnedContractName,
-            OwnedParameter, OwnedReceiveName,
+            concordium_contracts_common::ContractAddress as CA, OwnedParameter, OwnedReceiveName,
         },
-        transactions::{
-            send, BlockItem, ExactSizeTransactionSigner, InitContractPayload, UpdateContractPayload,
-        },
+        transactions::{send, BlockItem, UpdateContractPayload},
         AccountInfo, WalletAccount,
     },
     v2::{BlockIdentifier, Client, Endpoint},
@@ -38,12 +28,10 @@ use concordium_std::{
     from_bytes, to_bytes, AccountAddress, ContractAddress, OwnedEntrypointName, PublicKeyEd25519,
     SignatureEd25519, Timestamp,
 };
-use ed25519_dalek::{Keypair, PublicKey, Signature as EdSig, Signer, Verifier};
-use rand::{rngs::OsRng, AsByteSliceMut};
 use sale_utils::types::*;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{hash_map, BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap},
     convert::TryInto,
     ffi::OsStr,
     fmt::{self},
@@ -209,6 +197,22 @@ pub fn account_address_from_str(v: &str) -> Result<AccountAddress> {
     Ok(AccountAddress(address_bytes))
 }
 
+pub fn get_object_from_json(path: PathBuf) -> Result<serde_json::Value> {
+    // let mut state_cursor = Cursor::new(parameter_bytes);
+    // match types.to_json(&mut state_cursor) {
+    //     Ok(schema) => {
+    //         println!("{:?}", schema);
+    //         let json = serde_json::to_string_pretty(&schema).unwrap();
+    //         println!("{}", json);
+    //     },
+    //     Err(e) => bail!("x"),
+    // }
+
+    let file = std::fs::read(path).context("Could not read file.")?;
+    let parameter_json = serde_json::from_slice(&file).context("Could not parse the JSON.")?;
+    Ok(parameter_json)
+}
+
 pub fn filepath_exp() -> Result<()> {
     let data_path = Path::new("data/msg_rm_key.json");
     if validate_file_path(&data_path) {
@@ -216,46 +220,6 @@ pub fn filepath_exp() -> Result<()> {
     }
     let json = std::fs::read_to_string(data_path).unwrap();
     println!("{:?}", json);
-
-    Ok(())
-}
-
-pub fn datetime_exp() -> Result<()> {
-    let date_time: NaiveDateTime = NaiveDate::from_ymd_opt(2017, 11, 12)
-        .unwrap()
-        .and_hms_opt(17, 33, 44)
-        .unwrap();
-    println!(
-        "Number of seconds between 1970-01-01 00:00:00 and {} is {}.",
-        date_time,
-        date_time.timestamp()
-    );
-
-    // let d = NaiveDate::from_ymd_opt(2017, 11, 12).unwrap();
-    // let t = NaiveTime::from_hms_milli_opt(17, 33, 44, 000).unwrap();
-    // let dt: NaiveDateTime = d.and_time(t);
-    // println!("{}", dt.timestamp_millis());
-
-    let rfc3339 = DateTime::parse_from_rfc3339("2017-11-12T17:33:44+00:00")?;
-    println!("{}", rfc3339.timestamp_millis());
-    println!("{}", rfc3339.format("%a %b %e %T %Y"));
-
-    let rfc3339 = DateTime::parse_from_rfc3339("2017-11-12T17:33:44+09:00")?;
-    let rfc3339 = rfc3339 + Duration::hours(9);
-    println!("{}", rfc3339.timestamp_millis());
-    println!("{}", rfc3339.format("%a %b %e %T %Y"));
-
-    // let dt: Result<DateTime<FixedOffset>, _> =
-    //     DateTime::parse_from_rfc3339("2018-12-07T19:31:28+09:00");
-    // println!("DateTime::parse_from_rfc3339: {:?}", dt);
-
-    // let dt: Result<DateTime<FixedOffset>, _> =
-    //     DateTime::parse_from_str("2018/12/07 19:31:28 +0900", "%Y/%m/%d %H:%M:%S %z");
-    // println!("DateTime::parse_from_str: {:?}", dt);
-
-    // let dt: Result<NaiveDateTime, _> =
-    //     NaiveDateTime::parse_from_str("2018/12/07 19:31:28", "%Y/%m/%d %H:%M:%S");
-    // println!("NaiveDateTime::parse_from_str: {:?}", dt);
 
     Ok(())
 }
