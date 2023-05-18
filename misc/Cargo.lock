@@ -413,12 +413,13 @@ dependencies = [
 
 [[package]]
 name = "concordium-contracts-common"
-version = "5.3.1"
-source = "git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0#c4e83a1765783184dad9c6d00aad6504690f9374"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b03d120efcfc1c4b52209d4553302fa71683df4159cf5352927425ae8ed657f"
 dependencies = [
  "bs58",
  "chrono",
- "concordium-contracts-common-derive 1.0.1 (git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0)",
+ "concordium-contracts-common-derive 2.0.0",
  "fnv",
  "hashbrown 0.11.2",
  "hex",
@@ -442,8 +443,9 @@ dependencies = [
 
 [[package]]
 name = "concordium-contracts-common-derive"
-version = "1.0.1"
-source = "git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0#c4e83a1765783184dad9c6d00aad6504690f9374"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "434938667ab95bd21adb63289008690839d967eb23ead39d82f0dd2cd3b97c68"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -452,8 +454,9 @@ dependencies = [
 
 [[package]]
 name = "concordium-rust-sdk"
-version = "2.3.0"
-source = "git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0#c4e83a1765783184dad9c6d00aad6504690f9374"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3265b176d96e08497f7c795a0603530e7add62bf5a3ec3db1031f3e6f5d6b14d"
 dependencies = [
  "anyhow",
  "chrono",
@@ -467,7 +470,6 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-traits",
  "prost",
- "prost-derive",
  "rand 0.7.3",
  "rust_decimal",
  "semver",
@@ -481,12 +483,13 @@ dependencies = [
 
 [[package]]
 name = "concordium-smart-contract-engine"
-version = "1.0.1"
-source = "git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0#c4e83a1765783184dad9c6d00aad6504690f9374"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8b5f1a9bff4cca68f44d3e21b817fd31f1ed2633fd26cc0ce52fb8f8e9671ca"
 dependencies = [
  "anyhow",
  "byteorder",
- "concordium-contracts-common 5.3.1 (git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0)",
+ "concordium-contracts-common 6.0.0",
  "concordium-wasm",
  "derive_more",
  "ed25519-zebra",
@@ -523,11 +526,12 @@ dependencies = [
 
 [[package]]
 name = "concordium-wasm"
-version = "1.0.0"
-source = "git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0#c4e83a1765783184dad9c6d00aad6504690f9374"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06d62f36257fd47f65abdd8e7fc7fdf0529ffc7f6b76688ee2593131608474db"
 dependencies = [
  "anyhow",
- "concordium-contracts-common 5.3.1 (git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0)",
+ "concordium-contracts-common 6.0.0",
  "derive_more",
  "leb128",
  "num_enum",
@@ -535,14 +539,15 @@ dependencies = [
 
 [[package]]
 name = "concordium_base"
-version = "1.0.0"
-source = "git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0#c4e83a1765783184dad9c6d00aad6504690f9374"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc63d2816d25648bcbc4df1af0749ff0d891a494f3583d08986e70f8702b377b"
 dependencies = [
  "anyhow",
  "bs58",
  "byteorder",
  "chrono",
- "concordium-contracts-common 5.3.1 (git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0)",
+ "concordium-contracts-common 6.0.0",
  "concordium_base_derive",
  "curve25519-dalek",
  "derive_more",
@@ -574,7 +579,8 @@ dependencies = [
 [[package]]
 name = "concordium_base_derive"
 version = "1.0.0"
-source = "git+https://github.com/Concordium/concordium-rust-sdk?rev=concordium-rust-sdk/2.3.0#c4e83a1765783184dad9c6d00aad6504690f9374"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9a154e9a64d58d3e9f890c603df847b8685cfd0bac3fadd18498af539650bed"
 dependencies = [
  "proc-macro2",
  "quote",
