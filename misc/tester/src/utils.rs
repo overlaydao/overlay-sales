@@ -9,6 +9,7 @@ use concordium_rust_sdk::{
     smart_contracts::common::{
         from_bytes,
         schema::{ContractV3, ModuleV1, ModuleV2, ModuleV3},
+        Timestamp,
     },
     types::hashes::HashBytes,
     types::{
@@ -32,59 +33,168 @@ use ptree::{print_tree_with, PrintConfig, TreeBuilder};
 
 use crate::context::ReceiveContextV1Opt;
 
+pub fn init_logger() {
+    use simplelog::*;
+
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Debug,
+            Config::default(),
+            std::fs::File::create(format!(
+                "./logs/{}.log",
+                chrono::Local::now().format("%y%m%d_%H:%M")
+            ))
+            .unwrap(),
+        ),
+    ])
+    .unwrap();
+}
+
+pub fn test_init_context() -> context::InitContextOpt {
+    let dt = chrono::DateTime::parse_from_rfc3339("2023-05-18T00:00:00+09:00").unwrap();
+    let ts = Timestamp::from_timestamp_millis(dt.timestamp_millis() as u64);
+    let addr = account_address_bytes_from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")
+        .unwrap();
+    context::InitContextOpt::new(ts, Some(AccountAddress(addr)), None)
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct InitEnvironment {
+    pub contract_name: &'static str,
+    pub context_file: &'static str,
+    pub param_file: Option<&'static str>,
+    pub state_out_file: Option<&'static str>,
+}
+
+impl InitEnvironment {
+    pub fn do_call(
+        &self,
+        source: &Vec<u8>,
+        schema: &VersionedModuleSchema,
+        amount: Amount,
+        energy: InterpreterEnergy,
+    ) -> anyhow::Result<()> {
+        log::info!("================= Init Function Call =================");
+
+        let func_name = format!("init_{}", self.contract_name);
+        log::info!("func_name:{:?}", func_name);
+
+        // Context
+        let init_ctx: context::InitContextOpt = {
+            let ctx_content =
+                std::fs::read(self.context_file).context("Could not read init context file.")?;
+            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
+        };
+
+        // Parameter
+        let parameter = {
+            let mut init_param = Vec::new();
+            if let Some(param_file) = self.param_file {
+                let parameter_json = get_object_from_json(param_file.into())?;
+                let schema_parameter = &schema.get_init_param_schema(self.contract_name)?;
+                schema_parameter
+                    .serial_value_into(&parameter_json, &mut init_param)
+                    .context("Could not generate parameter bytes using schema and JSON.")?;
+            }
+            OwnedParameter::try_from(init_param).unwrap()
+        };
+
+        let source_ctx = v1::InvokeFromSourceCtx {
+            source,
+            amount,
+            parameter: parameter.as_ref(),
+            energy,
+            support_upgrade: true,
+        };
+
+        let mut loader = v1::trie::Loader::new(&[][..]);
+
+        // Call Init
+        let res = v1::invoke_init_with_metering_from_source(
+            source_ctx, init_ctx, &func_name, loader, false,
+        )
+        .context("Initialization failed due to a runtime error.")?;
+
+        check_init_result(
+            res,
+            &mut loader,
+            &schema,
+            self.contract_name,
+            &energy,
+            &self.state_out_file,
+        )?;
+
+        Ok(())
+    }
+}
+
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ReceiveEnvironment {
     pub contract_name: &'static str,
     pub entry_point: &'static str,
     pub context_file: &'static str,
+    pub param_file: Option<&'static str>,
     pub state_in_file: &'static str,
     pub state_out_file: Option<&'static str>,
-    pub param_file: Option<&'static str>,
 }
 
 impl ReceiveEnvironment {
     pub fn do_call(
         &self,
-        schema_usdc: &VersionedModuleSchema,
+        schema: &VersionedModuleSchema,
         arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+        amount: Amount,
+        energy: InterpreterEnergy,
     ) -> anyhow::Result<()> {
-        println!("================= Receive Function Call =================");
+        log::info!("================= Receive Function Call =================");
 
-        let amount = Amount::zero();
-        let energy = InterpreterEnergy::from(1_000_000);
         let func_name =
             OwnedReceiveName::new_unchecked(format!("{}.{}", self.contract_name, self.entry_point));
 
-        //
-        let ctx_content =
-            std::fs::read(self.context_file).context("Could not read init context file.")?;
-        let upd_ctx: context::ReceiveContextV1Opt =
-            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?;
+        log::info!("func_name:{:?}", func_name);
 
-        let state_bin =
-            std::fs::File::open(self.state_in_file).context("Could not read state file.")?;
-        let mut reader = std::io::BufReader::new(state_bin);
+        // Context
+        let receive_context: context::ReceiveContextV1Opt = {
+            let ctx_content =
+                std::fs::read(self.context_file).context("Could not read init context file.")?;
+            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
+        };
 
-        let current_state = v1::trie::PersistentState::deserialize(&mut reader)
-            .context("Could not deserialize the provided state.")?;
+        // State
+        let current_state: v1::trie::PersistentState = {
+            let state_bin =
+                std::fs::File::open(self.state_in_file).context("Could not read state file.")?;
+            let mut reader = std::io::BufReader::new(state_bin);
 
-        let mut mutable_state = current_state.thaw();
+            v1::trie::PersistentState::deserialize(&mut reader)
+                .context("Could not deserialize the provided state.")?
+        };
 
         let mut loader = v1::trie::Loader::new(&[][..]);
-        let _inner = mutable_state.get_inner(&mut loader);
+        let mut mutable_state = current_state.thaw();
+        let instance_state = v1::InstanceState::new(loader, mutable_state.get_inner(&mut loader));
 
         // Parameter
-        let mut params = Vec::new();
-        if let Some(file) = self.param_file {
-            let schema_parameter =
-                schema_usdc.get_receive_param_schema(self.contract_name, self.entry_point)?;
-            let parameter_json = get_object_from_json(file.into())?;
-            schema_parameter
-                .serial_value_into(&parameter_json, &mut params)
-                .context("Could not generate parameter bytes using schema and JSON.")?;
-        }
-        let parameter = OwnedParameter::try_from(params).unwrap();
+        let parameter = {
+            let mut params = Vec::new();
+            if let Some(file) = self.param_file {
+                let parameter_json = get_object_from_json(file.into())?;
+                let schema_parameter =
+                    schema.get_receive_param_schema(self.contract_name, self.entry_point)?;
+                schema_parameter
+                    .serial_value_into(&parameter_json, &mut params)
+                    .context("Could not generate parameter bytes using schema and JSON.")?;
+            }
+            OwnedParameter::try_from(params).unwrap()
+        };
 
         let receive_invocation = v1::ReceiveInvocation {
             amount,
@@ -100,7 +210,6 @@ impl ReceiveEnvironment {
         };
 
         // Call
-        let instance_state = v1::InstanceState::new(loader, _inner);
         let res = v1::invoke_receive::<
             _,
             _,
@@ -110,7 +219,7 @@ impl ReceiveEnvironment {
             context::ReceiveContextV1Opt,
         >(
             std::sync::Arc::clone(arc_art),
-            upd_ctx,
+            receive_context,
             receive_invocation,
             instance_state,
             receive_params,
@@ -122,7 +231,7 @@ impl ReceiveEnvironment {
             res,
             &mut loader,
             mutable_state,
-            &schema_usdc,
+            &schema,
             self.contract_name,
             self.entry_point,
             &energy,
@@ -241,8 +350,11 @@ pub fn display_state(state: &v1::trie::PersistentState) -> anyhow::Result<()> {
     state.display_tree(&mut tree_builder, &mut loader);
     let tree = tree_builder.build();
 
-    let config = PrintConfig::default();
-    print_tree_with(&tree, &config).context("Could not print the state as a tree.")
+    log::debug!("{:#?}", tree);
+
+    // let config = PrintConfig::default();
+    // print_tree_with(&tree, &config).context("Could not print the state as a tree.")
+    Ok(())
 }
 
 pub fn print_error(rv: ReturnValue, schema_error: Option<&Type>) -> anyhow::Result<()> {
@@ -250,10 +362,10 @@ pub fn print_error(rv: ReturnValue, schema_error: Option<&Type>) -> anyhow::Resu
         let out = schema
             .to_json_string_pretty(&rv)
             .map_err(|_| anyhow::anyhow!("Could not output error value in JSON"))?;
-        eprintln!("Error: {}", out);
+        log::error!("Error: {}", out);
         Ok::<_, anyhow::Error>(())
     } else {
-        eprintln!(
+        log::info!(
             "No schema for the error value. The raw error value is {:?}.",
             rv
         );
@@ -269,10 +381,10 @@ pub fn print_return_value(
         let out = schema
             .to_json_string_pretty(&rv)
             .map_err(|_| anyhow::anyhow!("Could not output return value in JSON"))?;
-        eprintln!("Return value: {}", out);
+        log::debug!("Return value: {}", out);
         Ok::<_, anyhow::Error>(())
     } else {
-        eprintln!(
+        log::info!(
             "No schema for the return value. The raw return value is {:?}.",
             rv
         );
@@ -288,18 +400,17 @@ pub fn print_state(
 ) -> anyhow::Result<()> {
     let mut collector = v1::trie::SizeCollector::default();
     let frozen = state.freeze(loader, &mut collector);
-    println!(
-        "\nThe contract will produce {}B of additional state that will be charged for.",
+    log::info!(
+        "The contract will produce {}B of additional state that will be charged for.",
         collector.collect()
     );
     if let Some(file_path) = out_bin_file {
-        // let file_path = PathBuf::from(file_path);
         let mut out_file = std::fs::File::create(&file_path)
             .context("Could not create file to write state into.")?;
         frozen
             .serialize(loader, &mut out_file)
             .context("Could not write the state.")?;
-        eprintln!("Resulting state written to {}.", file_path);
+        log::info!("Resulting state written to {}.", file_path);
     }
     if should_display_state {
         display_state(&frozen)?;
@@ -402,14 +513,13 @@ pub fn check_init_result(
             remaining_energy,
             return_value,
         } => {
-            eprintln!("\nInit call succeeded. The following logs were produced:");
+            log::info!("Init call <succeeded>.");
             // print_logs(logs);
             // println!("{:?}", state);
             print_state(state, loader, true, state_out_file)?;
-            eprintln!("\nThe following return value was returned:");
             print_return_value(return_value, schema_return_value)?;
-            eprintln!(
-                "\nInterpreter energy spent is {}",
+            log::info!(
+                "Interpreter energy spent is {}",
                 energy.subtract(remaining_energy.energy)
             )
         },
@@ -418,11 +528,11 @@ pub fn check_init_result(
             reason,
             return_value,
         } => {
-            eprintln!("Init call rejected with reason {}.", reason);
-            eprintln!("\nThe following error value was returned:");
+            log::info!("Init call rejected with reason {}.", reason);
+            log::info!("The following error value was returned:");
             print_error(return_value, schema_error)?;
-            eprintln!(
-                "\nInterpreter energy spent is {}",
+            log::info!(
+                "Interpreter energy spent is {}",
                 energy.subtract(remaining_energy.energy)
             )
         },
@@ -436,7 +546,7 @@ pub fn check_init_result(
             )));
         },
         v1::InitResult::OutOfEnergy => {
-            eprintln!("Init call terminated with out of energy.")
+            log::info!("Init call terminated with out of energy.")
         },
     }
 
@@ -463,18 +573,15 @@ pub fn check_receive_result(
             remaining_energy,
             return_value,
         } => {
-            eprintln!("\nReceive method succeeded. The following logs were produced.");
+            log::info!("Receive function <succeeded>.");
             // print_logs(logs);
-            if state_changed {
-                print_state(mutable_state, loader, true, state_out_file)?;
-            } else {
-                eprintln!("The state of the contract did not change.");
-                print_state(mutable_state, loader, true, state_out_file)?;
+            if !state_changed {
+                log::info!("The state of the contract did not change.");
             }
-            eprintln!("\nThe following return value was returned:");
+            print_state(mutable_state, loader, true, state_out_file)?;
             print_return_value(return_value, schema_return_value)?;
-            eprintln!(
-                "\nInterpreter energy spent is {}",
+            log::info!(
+                "Interpreter energy spent is {}",
                 energy.subtract(remaining_energy)
             )
         },
@@ -483,16 +590,16 @@ pub fn check_receive_result(
             reason,
             return_value,
         } => {
-            eprintln!("Receive call rejected with reason {}", reason);
-            eprintln!("\nThe following error value was returned:");
+            log::info!("Receive call rejected with reason {}", reason);
+            log::info!("The following error value was returned:");
             print_error(return_value, schema_error)?;
-            eprintln!(
-                "\nInterpreter energy spent is {}",
+            log::info!(
+                "Interpreter energy spent is {}",
                 energy.subtract(remaining_energy)
             )
         },
         v1::ReceiveResult::OutOfEnergy => {
-            eprintln!("Receive call terminated with: out of energy.")
+            log::info!("Receive call terminated with: out of energy.")
         },
         v1::ReceiveResult::Interrupt {
             remaining_energy,
@@ -501,7 +608,7 @@ pub fn check_receive_result(
             config: _,
             interrupt,
         } => {
-            eprintln!(
+            log::info!(
                 "Receive method was interrupted. The following logs were produced by the \
                  time of the interrupt."
             );
@@ -509,24 +616,29 @@ pub fn check_receive_result(
             if state_changed {
                 print_state(mutable_state, loader, true, &state_out_file)?;
             } else {
-                eprintln!("The state of the contract did not change.");
+                log::info!("The state of the contract did not change.");
             }
             match interrupt {
-                v1::Interrupt::Transfer { to, amount } => eprintln!(
+                v1::Interrupt::Transfer { to, amount } => log::info!(
                     "Receive call invoked a transfer of {} CCD to {}.",
-                    amount, to
+                    amount,
+                    to
                 ),
                 v1::Interrupt::Call {
                     address,
                     parameter,
                     name,
                     amount,
-                } => eprintln!(
+                } => log::info!(
                     "Receive call invoked contract at ({}, {}), calling method {} with \
                      amount {} and parameter {:?}.",
-                    address.index, address.subindex, name, amount, parameter
+                    address.index,
+                    address.subindex,
+                    name,
+                    amount,
+                    parameter
                 ),
-                v1::Interrupt::Upgrade { module_ref } => eprintln!(
+                v1::Interrupt::Upgrade { module_ref } => log::info!(
                     "Receive call requested to upgrade the contract to module reference \
                      {}.",
                     hex::encode(module_ref.as_ref()) /* use direct hex encoding until we
@@ -535,18 +647,18 @@ pub fn check_receive_result(
                 ),
 
                 v1::Interrupt::QueryAccountBalance { address } => {
-                    eprintln!("Receive call requested balance of the account {}.", address)
+                    log::info!("Receive call requested balance of the account {}.", address)
                 },
 
-                v1::Interrupt::QueryContractBalance { address } => eprintln!(
+                v1::Interrupt::QueryContractBalance { address } => log::info!(
                     "Receive call requested balance of the contract {}.",
                     address
                 ),
                 v1::Interrupt::QueryExchangeRates => {
-                    eprintln!("Receive call requested exchange rates.")
+                    log::info!("Receive call requested exchange rates.")
                 },
             }
-            eprintln!(
+            log::info!(
                 "Interpreter energy spent is {}",
                 energy.subtract(remaining_energy)
             )

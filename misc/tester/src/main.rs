@@ -40,6 +40,8 @@ async fn main() -> Result<()> {
             Ok(())
         },
         None => {
+            utils::init_logger();
+
             // ============================
             // // Wasm Module from node
             // let endpoint = Endpoint::from_static(NODE_ENDPOINT_V2);
@@ -53,7 +55,6 @@ async fn main() -> Result<()> {
                 pkg.to_lowercase().replace('-', "_")
             );
             let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
-            let source = wasm_module.source.as_ref();
 
             // Schema
             let schema_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
@@ -64,159 +65,49 @@ async fn main() -> Result<()> {
             // =======================================================================
             // Init
             // =======================================================================
-            println!("================= Init Function =================");
 
-            let contract_name = CONTRACT_PUB_RIDO_USDC;
-            let func_name = format!("init_{}", contract_name);
-
-            // Context
-            // let context_file = "./data/init_context.json";
-            // let ctx_content =
-            //     std::fs::read(context_file).context("Could not read init context file.")?;
-            // let init_ctx: context::InitContextOpt =
-            //     serde_json::from_slice(&ctx_content).context("Could not parse init context.")?;
-
-            let dt = chrono::DateTime::parse_from_rfc3339("2023-05-18T00:00:00+09:00")?;
-            let ts = Timestamp::from_timestamp_millis(dt.timestamp_millis() as u64);
-            let addr = utils::account_address_bytes_from_str(
-                "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
-            )?;
-            let init_ctx = context::InitContextOpt::new(ts, Some(AccountAddress(addr)), None);
-
-            // -------------------
-            // Parameter
-            let schema_parameter = &schema_usdc.get_init_param_schema(contract_name)?;
-
-            let param_file = "./data/init_pub_usdc.json";
-            let parameter_json = utils::get_object_from_json(param_file.into())?;
-
-            let mut init_param = Vec::new();
-            schema_parameter
-                .serial_value_into(&parameter_json, &mut init_param)
-                .context("Could not generate parameter bytes using schema and JSON.")?;
+            let init_env = utils::InitEnvironment {
+                contract_name: CONTRACT_PUB_RIDO_USDC,
+                context_file: "./data/init_context.json",
+                param_file: Some("./data/init_pub_usdc.json"),
+                state_out_file: Some("./data/state.bin"),
+            };
 
             let amount = Amount::zero();
             let energy = InterpreterEnergy::from(1_000_000);
-            let parameter = OwnedParameter::try_from(init_param).unwrap();
-            let source_ctx = v1::InvokeFromSourceCtx {
-                source,
-                amount,
-                parameter: parameter.as_ref(),
-                energy,
-                support_upgrade: true,
-            };
 
-            let mut loader = v1::trie::Loader::new(&[][..]);
-
-            // Call Init
-            let res = v1::invoke_init_with_metering_from_source(
-                source_ctx, init_ctx, &func_name, loader, false,
-            )
-            .context("Initialization failed due to a runtime error.")?;
-
-            let out_init_state_bin = Some("./data/state.bin");
-            utils::check_init_result(
-                res,
-                &mut loader,
-                &schema_usdc,
-                contract_name,
-                &energy,
-                &out_init_state_bin,
-            )?;
+            init_env.do_call(wasm_module.source.as_ref(), &schema_usdc, amount, energy)?;
 
             // =======================================================================
             // Receive
             // =======================================================================
 
+            let amount = Amount::zero();
+            let energy = InterpreterEnergy::from(1_000_000);
+
             let env1 = utils::ReceiveEnvironment {
                 contract_name: CONTRACT_PUB_RIDO_USDC,
                 entry_point: "setStatus",
                 context_file: "./data/upd_context.json",
+                param_file: Some("./data/set_status.json"),
                 state_in_file: "./data/state.bin",
                 state_out_file: Some("./data/state2.bin"),
-                param_file: Some("./data/set_status.json"),
             };
 
             let env2 = utils::ReceiveEnvironment {
                 contract_name: CONTRACT_PUB_RIDO_USDC,
                 entry_point: "view",
                 context_file: "./data/upd_context.json",
+                param_file: None,
                 state_in_file: "./data/state2.bin",
                 state_out_file: Some("./data/state3.bin"),
-                param_file: None,
             };
 
             let envs = vec![env1, env2];
 
             for env in envs {
-                env.do_call(&schema_usdc, &arc_art)?;
+                env.do_call(&schema_usdc, &arc_art, amount, energy)?;
             }
-
-            // =======================================================================
-            // Receive
-            // =======================================================================
-            // println!("================= Receive Function =================");
-
-            // let contract_name = CONTRACT_PUB_RIDO_USDC;
-            // let entry_point = "view";
-            // let func_name =
-            //     OwnedReceiveName::new_unchecked(format!("{}.{}", contract_name, entry_point));
-
-            // // Context And State
-            // let context_file = "./data/upd_context.json";
-            // let state_file = "./data/state2.bin";
-            // let out_upd_bin: Option<PathBuf> = Some(PathBuf::from("./data/state3.bin"));
-
-            // let ctx_content =
-            //     std::fs::read(context_file).context("Could not read init context file.")?;
-            // let upd_ctx: context::ReceiveContextV1Opt =
-            //     serde_json::from_slice(&ctx_content).context("Could not parse init context.")?;
-
-            // let state_bin = File::open(state_file).context("Could not read state file.")?;
-            // let mut reader = std::io::BufReader::new(state_bin);
-            // let current_state = v1::trie::PersistentState::deserialize(&mut reader)
-            //     .context("Could not deserialize the provided state.")?;
-
-            // let mut mutable_state = current_state.thaw();
-            // let mut loader = v1::trie::Loader::new(&[][..]);
-            // let inner = mutable_state.get_inner(&mut loader);
-            // let instance_state = v1::InstanceState::new(loader, inner);
-
-            // let res = v1::invoke_receive::<
-            //     _,
-            //     _,
-            //     _,
-            //     _,
-            //     context::ReceiveContextV1Opt,
-            //     context::ReceiveContextV1Opt,
-            // >(
-            //     std::sync::Arc::clone(&arc_art),
-            //     upd_ctx,
-            //     v1::ReceiveInvocation {
-            //         amount,
-            //         receive_name: func_name.as_receive_name(),
-            //         parameter: parameter.as_ref(),
-            //         energy,
-            //     },
-            //     instance_state,
-            //     v1::ReceiveParams {
-            //         max_parameter_size: u16::MAX as usize,
-            //         limit_logs_and_return_values: false,
-            //         support_queries: true,
-            //     },
-            // )
-            // .context("Calling receive failed.")?;
-
-            // utils::check_receive_result(
-            //     res,
-            //     &mut loader,
-            //     mutable_state,
-            //     &schema_usdc,
-            //     contract_name,
-            //     entry_point,
-            //     &energy,
-            //     &out_upd_bin,
-            // )?;
 
             // =======================================================================
 

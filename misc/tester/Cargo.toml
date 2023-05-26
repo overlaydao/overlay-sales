@@ -17,12 +17,14 @@ chrono = "0.4.23"
 clap = {version = "4.2.5", features = ["derive"]}
 ed25519-dalek = "=1.0"
 hex = "0.4.3"
+log = "0.4.0"
 ptree = "0.4"
 rand = "0.7.3"
 sale-utils = {path = "../../sale-utils"}
 serde = {version = "1.0.152", features = ["derive"]}
 serde_json = "1.0.91"
 sha2 = "0.10"
+simplelog = "0.12.0"
 tokio = {version = "1.21", features = ["full"]}
 tonic = {version = "0.8", features = ["tls", "tls-roots"]}
 
