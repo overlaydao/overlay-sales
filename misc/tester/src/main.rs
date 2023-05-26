@@ -82,9 +82,6 @@ async fn main() -> Result<()> {
             // Receive
             // =======================================================================
 
-            let amount = Amount::zero();
-            let energy = InterpreterEnergy::from(1_000_000);
-
             let env1 = utils::ReceiveEnvironment {
                 contract_name: CONTRACT_PUB_RIDO_USDC,
                 entry_point: "setStatus",
@@ -106,7 +103,7 @@ async fn main() -> Result<()> {
             let envs = vec![env1, env2];
 
             for env in envs {
-                env.do_call(&schema_usdc, &arc_art, amount, energy)?;
+                env.do_call(&arc_art, &schema_usdc, amount, energy)?;
             }
 
             // =======================================================================

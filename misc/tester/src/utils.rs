@@ -149,8 +149,8 @@ pub struct ReceiveEnvironment {
 impl ReceiveEnvironment {
     pub fn do_call(
         &self,
-        schema: &VersionedModuleSchema,
         arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+        schema: &VersionedModuleSchema,
         amount: Amount,
         energy: InterpreterEnergy,
     ) -> anyhow::Result<()> {
