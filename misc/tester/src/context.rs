@@ -19,6 +19,7 @@ use serde::Deserialize;
 
 pub struct ModuleInfo<'a> {
     pub contract_name: &'static str,
+    pub owner: AccountAddress,
     pub schema: &'a VersionedModuleSchema,
     pub artifact: &'a std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
 }
@@ -44,7 +45,7 @@ impl<'a> ChainContext<'a> {
 /// Used when simulating contracts to allow the user to only specify the
 /// necessary context fields.
 /// The default value is `None` for all `Option` fields.
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainMetadataOpt {
     slot_time: Option<SlotTime>,
@@ -82,10 +83,10 @@ impl v0::HasChainMetadata for ChainMetadataOpt {
 #[serde(rename_all = "camelCase")]
 pub struct InitContextOpt {
     #[serde(default)]
-    metadata: ChainMetadataOpt,
-    init_origin: Option<AccountAddress>,
+    pub metadata: ChainMetadataOpt,
+    pub init_origin: Option<AccountAddress>,
     #[serde(default, deserialize_with = "deserialize_policy_bytes_from_json")]
-    sender_policies: Option<Vec<u8>>,
+    pub sender_policies: Option<Vec<u8>>,
 }
 
 impl InitContextOpt {
@@ -148,7 +149,7 @@ fn deserialize_optional_address<'de, D: serde::de::Deserializer<'de>>(
 /// context fields used by the contract.
 /// The default value is `None` for all `Option` fields and the default of
 /// `ChainMetadataOpt` for `metadata`.
-#[derive(serde::Deserialize, Default, Debug)]
+#[derive(serde::Deserialize, Default, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ReceiveContextOpt {
     #[serde(default)]
@@ -222,7 +223,7 @@ fn unwrap_ctx_field<A>(opt: Option<A>, name: &str) -> ExecResult<A> {
 /// context fields used by the contract.
 /// The default value is `None` for all `Option` fields and the default of
 /// `ChainMetadataOpt` for `metadata`.
-#[derive(serde::Deserialize, Default, Debug)]
+#[derive(serde::Deserialize, Default, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ReceiveContextV1Opt {
     #[serde(flatten)]

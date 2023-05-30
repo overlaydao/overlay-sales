@@ -36,6 +36,11 @@ async fn main() -> Result<()> {
             let amount = Amount::zero();
             let energy = InterpreterEnergy::from(1_000_000);
 
+            // let ctx = context::InitContextOpt {
+            //     ..Default::default()
+            // };
+            // println!("{:?}", ctx);
+
             // ====================================================================================
             // Prepare for chain context
             // ====================================================================================
@@ -68,18 +73,26 @@ async fn main() -> Result<()> {
             // Chain Context
             let mut modules = std::collections::HashMap::new();
             let mut chain = context::ChainContext { modules };
+
+            // #[Todo] move to init do_call
             chain.add_module(
                 3496,
                 context::ModuleInfo {
                     contract_name: CONTRACT_USDC,
+                    owner: AccountAddress::from_str(
+                        "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+                    )?,
                     schema: &schema_usdc,
                     artifact: &arc_art_usdc,
                 },
             );
             chain.add_module(
-                0,
+                10,
                 context::ModuleInfo {
                     contract_name: CONTRACT_PUB_RIDO_USDC,
+                    owner: AccountAddress::from_str(
+                        "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+                    )?,
                     schema: &schema_rido_usdc,
                     artifact: &arc_art_rido_usdc,
                 },
@@ -95,7 +108,16 @@ async fn main() -> Result<()> {
                 param_file: Some("./data/usdc/p_init.json"),
                 state_out_file: "./data/usdc/state.bin",
             };
+
+            let init_env_rido_usdc = utils::InitEnvironment {
+                contract_index: 10,
+                context_file: "./data/rido_usdc/ctx_init.json",
+                param_file: Some("./data/rido_usdc/p_init_pub_usdc.json"),
+                state_out_file: "./data/rido_usdc/state.bin",
+            };
+
             init_env_usdc.do_call(&chain, amount, energy)?;
+            init_env_rido_usdc.do_call(&chain, amount, energy)?;
 
             // ====================================================================================
             // Receive
@@ -109,6 +131,22 @@ async fn main() -> Result<()> {
                     context_file: "./data/usdc/ctx_upd.json",
                     state_in_file: "./data/usdc/state.bin",
                     state_out_file: "./data/usdc/state.bin",
+                },
+                utils::ReceiveEnvironment {
+                    contract_index: 10,
+                    entry_point: "setStatus",
+                    param_file: Some("./data/rido_usdc/p_set_status.json"),
+                    context_file: "./data/rido_usdc/ctx_upd.json",
+                    state_in_file: "./data/rido_usdc/state.bin",
+                    state_out_file: "./data/rido_usdc/state.bin",
+                },
+                utils::ReceiveEnvironment {
+                    contract_index: 10,
+                    entry_point: "view",
+                    param_file: None,
+                    context_file: "./data/rido_usdc/ctx_upd.json",
+                    state_in_file: "./data/rido_usdc/state.bin",
+                    state_out_file: "./data/rido_usdc/state.bin",
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
@@ -139,66 +177,6 @@ async fn main() -> Result<()> {
             for env in envs {
                 env.do_call(&chain, amount, energy)?;
             }
-
-            // ====================================================================================
-            // RIDO_USDC_PUBLIC
-            // ====================================================================================
-            // let pkg = "ovl-sale-usdc-public";
-            // let module_file = format!(
-            //     "../../{}/target/concordium/wasm32-unknown-unknown/release/{}.wasm.v1",
-            //     pkg,
-            //     pkg.to_lowercase().replace('-', "_")
-            // );
-            // let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
-
-            // // Schema
-            // let schema_rido_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
-
-            // let artifact = utils::get_artifact(&wasm_module)?;
-            // let arc_art = std::sync::Arc::new(artifact);
-
-            // let amount = Amount::zero();
-            // let energy = InterpreterEnergy::from(1_000_000);
-
-            // // Init - rido_usdc -----------------------------
-            // let init_env = utils::InitEnvironment {
-            //     contract_name: CONTRACT_PUB_RIDO_USDC,
-            //     context_file: "./data/rido_usdc/ctx_init.json",
-            //     param_file: Some("./data/rido_usdc/p_init_pub_usdc.json"),
-            //     state_out_file: Some("./data/rido_usdc/state.bin"),
-            // };
-
-            // init_env.do_call(
-            //     wasm_module.source.as_ref(),
-            //     &schema_rido_usdc,
-            //     amount,
-            //     energy,
-            // )?;
-
-            // // Receive --------------------------------
-            // let env1 = utils::ReceiveEnvironment {
-            //     contract_name: CONTRACT_PUB_RIDO_USDC,
-            //     entry_point: "setStatus",
-            //     context_file: "./data/rido_usdc/ctx_upd.json",
-            //     param_file: Some("./data/rido_usdc/p_set_status.json"),
-            //     state_in_file: "./data/rido_usdc/state.bin",
-            //     state_out_file: Some("./data/rido_usdc/state2.bin"),
-            // };
-
-            // let env2 = utils::ReceiveEnvironment {
-            //     contract_name: CONTRACT_PUB_RIDO_USDC,
-            //     entry_point: "view",
-            //     context_file: "./data/rido_usdc/ctx_upd.json",
-            //     param_file: None,
-            //     state_in_file: "./data/rido_usdc/state2.bin",
-            //     state_out_file: Some("./data/rido_usdc/state3.bin"),
-            // };
-
-            // let envs = vec![env1, env2];
-
-            // for env in envs {
-            //     env.do_call(&arc_art, &schema_rido_usdc, amount, energy)?;
-            // }
 
             // =======================================================================
 

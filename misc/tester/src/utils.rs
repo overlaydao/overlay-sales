@@ -363,7 +363,7 @@ impl ReceiveEnvironment {
         );
 
         // Context
-        let receive_context: context::ReceiveContextV1Opt = {
+        let mut receive_context: context::ReceiveContextV1Opt = {
             let ctx_content =
                 std::fs::read(self.context_file).context("Could not read init context file.")?;
             serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
@@ -423,7 +423,7 @@ impl ReceiveEnvironment {
             context::ReceiveContextV1Opt,
         >(
             std::sync::Arc::clone(&mods.artifact),
-            receive_context,
+            receive_context.clone(),
             receive_invocation,
             instance_state,
             receive_params,
@@ -431,6 +431,15 @@ impl ReceiveEnvironment {
         .context("Calling receive failed.")?;
 
         // Result
+        if let v1::ReceiveResult::Interrupt { .. } = res {
+            receive_context
+                .common
+                .set_sender(Address::Contract(ContractAddress::new(
+                    self.contract_index,
+                    0,
+                )));
+        };
+
         check_receive_result(
             res,
             chain,
@@ -441,6 +450,7 @@ impl ReceiveEnvironment {
             self.entry_point,
             &energy,
             &self.state_out_file,
+            receive_context,
         )?;
 
         Ok(())
@@ -453,7 +463,7 @@ impl InvokeEnvironment {
         chain: &context::ChainContext,
         // arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
         // schema: &VersionedModuleSchema,
-        receive_context: context::ReceiveContextV1Opt,
+        mut receive_context: context::ReceiveContextV1Opt,
         amount: Amount,
         energy: InterpreterEnergy,
     ) -> anyhow::Result<()> {
@@ -504,7 +514,7 @@ impl InvokeEnvironment {
             context::ReceiveContextV1Opt,
         >(
             std::sync::Arc::clone(&mods.artifact),
-            receive_context,
+            receive_context.clone(),
             receive_invocation,
             instance_state,
             receive_params,
@@ -512,6 +522,14 @@ impl InvokeEnvironment {
         .context("Calling receive failed.")?;
 
         // Result
+        if let v1::ReceiveResult::Interrupt { .. } = res {
+            receive_context
+                .common
+                .set_sender(Address::Contract(ContractAddress::new(
+                    self.contract_index,
+                    0,
+                )));
+        };
         check_receive_result(
             res,
             chain,
@@ -522,6 +540,7 @@ impl InvokeEnvironment {
             self.entry_point.as_str(),
             &energy,
             &self.state_out_file,
+            receive_context,
         )?;
 
         Ok(())
@@ -673,6 +692,7 @@ pub fn check_receive_result(
     entrypoint: &str,
     energy: &InterpreterEnergy,
     state_out_file: &'static str,
+    receive_context: ReceiveContextV1Opt,
 ) -> anyhow::Result<()> {
     let (_, schema_return_value, schema_error, schema_event) =
         get_schemas_for_receive(vschema, contract_name, entrypoint)?;
@@ -748,13 +768,6 @@ pub fn check_receive_result(
                         parameter
                     );
 
-                    // Context
-                    let mut receive_context: context::ReceiveContextV1Opt = {
-                        let ctx_content = std::fs::read("./data/rido_usdc/ctx_upd_ca.json")
-                            .context("Could not read init context file.")?;
-                        serde_json::from_slice(&ctx_content)
-                            .context("Could not parse init context.")?
-                    };
                     // #[TODO]
                     // let addr = AccountAddress(account_address_bytes_from_str(
                     //     "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
@@ -771,7 +784,6 @@ pub fn check_receive_result(
                         state_in_file: "./data/rido_usdc/state.bin",
                         state_out_file: "./data/rido_usdc/state.bin",
                     };
-
                     x.do_invoke(chain, receive_context, amount, energy);
                 },
 
