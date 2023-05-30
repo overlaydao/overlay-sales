@@ -18,17 +18,8 @@ use serde::Deserialize;
 use std::{fs::File, str::FromStr};
 use std::{io::Read, path::PathBuf};
 
+use config::*;
 use tester::*;
-
-pub const NODE_ENDPOINT_V2: &str = "http://153.126.181.131:20001";
-pub const CONTRACT_OPERATOR: &str = "ovl_operator";
-pub const MODREF_OPERATOR: &str =
-    "0e2e594df9b11dbc4728195ab4a1d1437fbfc310acf51273b59306330209119d";
-pub const INDEX_OPERATOR: u64 = 4513;
-pub const CONTRACT_PUB_RIDO_USDC: &str = "pub_rido_usdc";
-pub const MODREF_PUB_RIDO_USDC: &str =
-    "a03c62c603482ec786f2614b15586f14d135e1cc0cdadf13400c4271d9f40c91";
-pub const INDEX_PUB_RIDO_USDC: u64 = 4534;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
@@ -42,69 +33,140 @@ async fn main() -> Result<()> {
         None => {
             utils::init_logger();
 
-            // ============================
-            // // Wasm Module from node
-            // let endpoint = Endpoint::from_static(NODE_ENDPOINT_V2);
-            // let wasm_module: WasmModule =
-            //     utils::get_wasm_module_from_node(endpoint, MODREF_OPERATOR).await?;
+            let amount = Amount::zero();
+            let energy = InterpreterEnergy::from(1_000_000);
 
-            let pkg = "ovl-sale-usdc-public";
+            // ====================================================================================
+            // Init
+            // ====================================================================================
+
+            // USDC
+            let pkg = "cis2-bridgeable";
             let module_file = format!(
-                "../../{}/target/concordium/wasm32-unknown-unknown/release/{}.wasm.v1",
+                "../../../eth-ccd-bridge/concordium_contracts/{}/target/concordium/wasm32-unknown-unknown/release/{}.wasm.v1",
                 pkg,
                 pkg.to_lowercase().replace('-', "_")
             );
             let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
+            println!("module reference: {:?}", wasm_module.get_module_ref());
 
-            // Schema
             let schema_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
+            // types::usdc::test(&schema_usdc, CONTRACT_USDC, "deposit");
+            let artifact_usdc = utils::get_artifact(&wasm_module)?;
+            let arc_art_usdc = std::sync::Arc::new(artifact_usdc);
 
-            let artifact = utils::get_artifact(&wasm_module)?;
-            let arc_art = std::sync::Arc::new(artifact);
-
-            // =======================================================================
-            // Init
-            // =======================================================================
-
-            let init_env = utils::InitEnvironment {
-                contract_name: CONTRACT_PUB_RIDO_USDC,
-                context_file: "./data/init_context.json",
-                param_file: Some("./data/init_pub_usdc.json"),
-                state_out_file: Some("./data/state.bin"),
+            let init_env_usdc = utils::InitEnvironment {
+                contract_name: CONTRACT_USDC,
+                context_file: "./data/usdc/ctx_init.json",
+                param_file: Some("./data/usdc/p_init.json"),
+                state_out_file: Some("./data/usdc/state.bin"),
             };
+            // init_env_usdc.do_call(wasm_module.source.as_ref(), &schema_usdc, amount, energy)?;
+            init_env_usdc.do_call(&arc_art_usdc, &schema_usdc, amount, energy)?;
 
-            let amount = Amount::zero();
-            let energy = InterpreterEnergy::from(1_000_000);
+            // ====================================================================================
+            // Updates
+            // ====================================================================================
 
-            init_env.do_call(wasm_module.source.as_ref(), &schema_usdc, amount, energy)?;
-
-            // =======================================================================
-            // Receive
-            // =======================================================================
-
-            let env1 = utils::ReceiveEnvironment {
-                contract_name: CONTRACT_PUB_RIDO_USDC,
-                entry_point: "setStatus",
-                context_file: "./data/upd_context.json",
-                param_file: Some("./data/set_status.json"),
-                state_in_file: "./data/state.bin",
-                state_out_file: Some("./data/state2.bin"),
-            };
-
-            let env2 = utils::ReceiveEnvironment {
-                contract_name: CONTRACT_PUB_RIDO_USDC,
-                entry_point: "view",
-                context_file: "./data/upd_context.json",
-                param_file: None,
-                state_in_file: "./data/state2.bin",
-                state_out_file: Some("./data/state3.bin"),
-            };
-
-            let envs = vec![env1, env2];
+            // Receive ---------------------------------------
+            let envs = vec![
+                utils::ReceiveEnvironment {
+                    contract_name: CONTRACT_USDC,
+                    entry_point: "grantRole",
+                    context_file: "./data/usdc/ctx_upd.json",
+                    param_file: Some("./data/usdc/p_grant_role.json"),
+                    state_in_file: "./data/usdc/state.bin",
+                    state_out_file: Some("./data/usdc/state2.bin"),
+                },
+                utils::ReceiveEnvironment {
+                    contract_name: CONTRACT_USDC,
+                    entry_point: "deposit",
+                    context_file: "./data/usdc/ctx_upd.json",
+                    param_file: Some("./data/usdc/p_deposit.json"),
+                    state_in_file: "./data/usdc/state2.bin",
+                    state_out_file: Some("./data/usdc/state3.bin"),
+                },
+                utils::ReceiveEnvironment {
+                    contract_name: CONTRACT_USDC,
+                    entry_point: "transfer",
+                    context_file: "./data/usdc/ctx_upd.json",
+                    param_file: Some("./data/usdc/p_transfer_contract.json"),
+                    state_in_file: "./data/usdc/state3.bin",
+                    state_out_file: Some("./data/usdc/state4.bin"),
+                },
+                utils::ReceiveEnvironment {
+                    contract_name: CONTRACT_USDC,
+                    entry_point: "balanceOf",
+                    context_file: "./data/usdc/ctx_upd.json",
+                    param_file: Some("./data/usdc/p_balanceof.json"),
+                    state_in_file: "./data/usdc/state4.bin",
+                    state_out_file: Some("./data/usdc/state5.bin"),
+                },
+            ];
 
             for env in envs {
-                env.do_call(&arc_art, &schema_usdc, amount, energy)?;
+                env.do_call(&arc_art_usdc, &schema_usdc, amount, energy)?;
             }
+
+            // ====================================================================================
+            // RIDO_USDC_PUBLIC
+            // ====================================================================================
+            // let pkg = "ovl-sale-usdc-public";
+            // let module_file = format!(
+            //     "../../{}/target/concordium/wasm32-unknown-unknown/release/{}.wasm.v1",
+            //     pkg,
+            //     pkg.to_lowercase().replace('-', "_")
+            // );
+            // let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
+
+            // // Schema
+            // let schema_rido_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
+
+            // let artifact = utils::get_artifact(&wasm_module)?;
+            // let arc_art = std::sync::Arc::new(artifact);
+
+            // let amount = Amount::zero();
+            // let energy = InterpreterEnergy::from(1_000_000);
+
+            // // Init - rido_usdc -----------------------------
+            // let init_env = utils::InitEnvironment {
+            //     contract_name: CONTRACT_PUB_RIDO_USDC,
+            //     context_file: "./data/rido_usdc/ctx_init.json",
+            //     param_file: Some("./data/rido_usdc/p_init_pub_usdc.json"),
+            //     state_out_file: Some("./data/rido_usdc/state.bin"),
+            // };
+
+            // init_env.do_call(
+            //     wasm_module.source.as_ref(),
+            //     &schema_rido_usdc,
+            //     amount,
+            //     energy,
+            // )?;
+
+            // // Receive --------------------------------
+            // let env1 = utils::ReceiveEnvironment {
+            //     contract_name: CONTRACT_PUB_RIDO_USDC,
+            //     entry_point: "setStatus",
+            //     context_file: "./data/rido_usdc/ctx_upd.json",
+            //     param_file: Some("./data/rido_usdc/p_set_status.json"),
+            //     state_in_file: "./data/rido_usdc/state.bin",
+            //     state_out_file: Some("./data/rido_usdc/state2.bin"),
+            // };
+
+            // let env2 = utils::ReceiveEnvironment {
+            //     contract_name: CONTRACT_PUB_RIDO_USDC,
+            //     entry_point: "view",
+            //     context_file: "./data/rido_usdc/ctx_upd.json",
+            //     param_file: None,
+            //     state_in_file: "./data/rido_usdc/state2.bin",
+            //     state_out_file: Some("./data/rido_usdc/state3.bin"),
+            // };
+
+            // let envs = vec![env1, env2];
+
+            // for env in envs {
+            //     env.do_call(&arc_art, &schema_rido_usdc, amount, energy)?;
+            // }
 
             // =======================================================================
 
@@ -118,6 +180,11 @@ async fn main() -> Result<()> {
             // ----------------------------------------------------------------
             // Init in real node
             // ------------------------
+
+            // // Wasm Module from node
+            // let endpoint = Endpoint::from_static(NODE_ENDPOINT_V2);
+            // let wasm_module: WasmModule =
+            //     utils::get_wasm_module_from_node(endpoint, MODREF_OPERATOR).await?;
 
             // let endpoint = Endpoint::from_static(NODE_ENDPOINT_V2);
             // let schema_ops = cmd::node::get_module(endpoint.clone(), MODREF_OPERATOR).await?;

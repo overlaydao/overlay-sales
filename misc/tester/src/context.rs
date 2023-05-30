@@ -133,6 +133,12 @@ pub struct ReceiveContextOpt {
     sender_policies: Option<Vec<u8>>,
 }
 
+impl ReceiveContextOpt {
+    pub fn set_sender(&mut self, addr: Address) -> () {
+        self.sender = Some(addr);
+    }
+}
+
 impl v0::HasReceiveContext for ReceiveContextOpt {
     type MetadataType = ChainMetadataOpt;
 

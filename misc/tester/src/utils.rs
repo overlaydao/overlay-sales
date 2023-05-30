@@ -3,7 +3,7 @@ use anyhow::{bail, ensure, Context};
 use concordium_base::common::Deserial;
 use concordium_contracts_common::{
     schema::{FunctionV2, Type, VersionedModuleSchema},
-    AccountAddress, Amount, Cursor, OwnedParameter, OwnedReceiveName,
+    AccountAddress, Address, Amount, ContractAddress, Cursor, OwnedParameter, OwnedReceiveName,
 };
 use concordium_rust_sdk::{
     smart_contracts::common::{
@@ -19,7 +19,11 @@ use concordium_rust_sdk::{
     v2::{BlockIdentifier, Client, Endpoint},
 };
 use concordium_smart_contract_engine::{
-    v1::{self, trie::MutableState, InitResult, ProcessedImports, ReceiveResult, ReturnValue},
+    v0::HasReceiveContext,
+    v1::{
+        self, trie::MutableState, InitInvocation, InitResult, ProcessedImports, ReceiveResult,
+        ReturnValue,
+    },
     InterpreterEnergy,
 };
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
@@ -76,15 +80,15 @@ pub struct InitEnvironment {
 impl InitEnvironment {
     pub fn do_call(
         &self,
-        source: &Vec<u8>,
+        // source: &Vec<u8>,
+        // arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+        artifact: &Artifact<ProcessedImports, CompiledFunction>,
         schema: &VersionedModuleSchema,
         amount: Amount,
         energy: InterpreterEnergy,
     ) -> anyhow::Result<()> {
-        log::info!("================= Init Function Call =================");
-
-        let func_name = format!("init_{}", self.contract_name);
-        log::info!("func_name:{:?}", func_name);
+        let func_name: String = format!("init_{}", self.contract_name);
+        log::info!("================= Init::{:?} =================", func_name);
 
         // Context
         let init_ctx: context::InitContextOpt = {
@@ -106,21 +110,35 @@ impl InitEnvironment {
             OwnedParameter::try_from(init_param).unwrap()
         };
 
-        let source_ctx = v1::InvokeFromSourceCtx {
-            source,
-            amount,
-            parameter: parameter.as_ref(),
-            energy,
-            support_upgrade: true,
-        };
-
         let mut loader = v1::trie::Loader::new(&[][..]);
 
         // Call Init
-        let res = v1::invoke_init_with_metering_from_source(
-            source_ctx, init_ctx, &func_name, loader, false,
+        let res = v1::invoke_init(
+            // std::sync::Arc::clone(arc_art),
+            artifact,
+            init_ctx,
+            InitInvocation {
+                amount,
+                init_name: &func_name,
+                parameter: parameter.as_ref(),
+                energy,
+            },
+            false,
+            loader,
         )
         .context("Initialization failed due to a runtime error.")?;
+
+        // let source_ctx = v1::InvokeFromSourceCtx {
+        //     source,
+        //     amount,
+        //     parameter: parameter.as_ref(),
+        //     energy,
+        //     support_upgrade: true,
+        // };
+        // let res = v1::invoke_init_with_metering_from_source(
+        //     source_ctx, init_ctx, &func_name, loader, false,
+        // )
+        // .context("Initialization failed due to a runtime error.")?;
 
         check_init_result(
             res,
@@ -154,12 +172,12 @@ impl ReceiveEnvironment {
         amount: Amount,
         energy: InterpreterEnergy,
     ) -> anyhow::Result<()> {
-        log::info!("================= Receive Function Call =================");
-
         let func_name =
             OwnedReceiveName::new_unchecked(format!("{}.{}", self.contract_name, self.entry_point));
-
-        log::info!("func_name:{:?}", func_name);
+        log::info!(
+            "================= Receive::{:?} =================",
+            func_name
+        );
 
         // Context
         let receive_context: context::ReceiveContextV1Opt = {
@@ -189,6 +207,8 @@ impl ReceiveEnvironment {
                 let parameter_json = get_object_from_json(file.into())?;
                 let schema_parameter =
                     schema.get_receive_param_schema(self.contract_name, self.entry_point)?;
+                log::debug!("param > {:?}", parameter_json);
+                log::debug!("schema > {:?}", schema_parameter);
                 schema_parameter
                     .serial_value_into(&parameter_json, &mut params)
                     .context("Could not generate parameter bytes using schema and JSON.")?;
@@ -608,10 +628,7 @@ pub fn check_receive_result(
             config: _,
             interrupt,
         } => {
-            log::info!(
-                "Receive method was interrupted. The following logs were produced by the \
-                 time of the interrupt."
-            );
+            log::info!("Receive function <interrupted>.");
             // print_logs(logs);
             if state_changed {
                 print_state(mutable_state, loader, true, &state_out_file)?;
@@ -629,21 +646,61 @@ pub fn check_receive_result(
                     parameter,
                     name,
                     amount,
-                } => log::info!(
-                    "Receive call invoked contract at ({}, {}), calling method {} with \
+                } => {
+                    log::info!(
+                        "Receive call invoked contract at ({}, {}), calling method {} with \
                      amount {} and parameter {:?}.",
-                    address.index,
-                    address.subindex,
-                    name,
-                    amount,
-                    parameter
-                ),
+                        address.index,
+                        address.subindex,
+                        name,
+                        amount,
+                        parameter
+                    );
+
+                    // #[TODO]
+                    // Context
+                    let mut receive_context: context::ReceiveContextV1Opt = {
+                        let ctx_content = std::fs::read("./data/rido_usdc/ctx_upd.json")
+                            .context("Could not read init context file.")?;
+                        serde_json::from_slice(&ctx_content)
+                            .context("Could not parse init context.")?
+                    };
+                    // let addr = AccountAddress(account_address_bytes_from_str(
+                    //     "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+                    // )
+                    // .unwrap());
+                    let addr = ContractAddress::new(3496, 0);
+                    receive_context.common.set_sender(Address::from(addr));
+
+                    let x = InvokeEnvironment {
+                        contract_name: crate::config::CONTRACT_PUB_RIDO_USDC,
+                        entry_point: String::from(name),
+                        parameter: OwnedParameter::new_unchecked(parameter),
+                        state_in_file: "./data/rido_usdc/state2.bin",
+                        state_out_file: Some("./data/rido_usdc/state3.bin"),
+                    };
+
+                    let amount = Amount::zero();
+                    let energy = InterpreterEnergy::from(1_000_000);
+
+                    let pkg = "ovl-sale-usdc-public";
+                    let module_file = format!(
+                        "../../{}/target/concordium/wasm32-unknown-unknown/release/{}.wasm.v1",
+                        pkg,
+                        pkg.to_lowercase().replace('-', "_")
+                    );
+                    let wasm_module: WasmModule = get_wasm_module_from_file(module_file)?;
+                    let schema: VersionedModuleSchema = get_schema(&wasm_module)?;
+                    let artifact = get_artifact(&wasm_module)?;
+                    let arc_art = std::sync::Arc::new(artifact);
+
+                    x.do_call(&arc_art, &schema, receive_context, amount, energy);
+                },
+
                 v1::Interrupt::Upgrade { module_ref } => log::info!(
                     "Receive call requested to upgrade the contract to module reference \
                      {}.",
-                    hex::encode(module_ref.as_ref()) /* use direct hex encoding until we
-                                                      * have a proper Display
-                                                      * implementation. */
+                    hex::encode(module_ref.as_ref())
                 ),
 
                 v1::Interrupt::QueryAccountBalance { address } => {
@@ -676,30 +733,115 @@ pub fn check_receive_result(
     Ok(())
 }
 
-pub fn deserializer(
-    contract_name: &str,
-    func_name: &str,
-    state_bytes: String,
-    schema: String,
-) -> Result<String, String> {
-    let module_schema: ModuleV3 = match from_bytes(&hex::decode(schema).unwrap()) {
-        Ok(o) => o,
-        Err(e) => return Err(format!("unable to parse schema: {:#?}", e)),
-    };
+#[derive(Debug)]
+pub struct InvokeEnvironment {
+    pub contract_name: &'static str,
+    pub entry_point: String,
+    pub parameter: OwnedParameter,
+    pub state_in_file: &'static str,
+    pub state_out_file: Option<&'static str>,
+}
 
-    let contract_schema: &ContractV3 = module_schema
-        .contracts
-        .get(contract_name)
-        .ok_or_else(|| "Unable to get contract schema: not included in module schema")
-        .unwrap();
+impl InvokeEnvironment {
+    pub fn do_call(
+        &self,
+        arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+        schema: &VersionedModuleSchema,
+        receive_context: context::ReceiveContextV1Opt,
+        amount: Amount,
+        energy: InterpreterEnergy,
+    ) -> anyhow::Result<()> {
+        let func_name =
+            OwnedReceiveName::new_unchecked(format!("{}.{}", self.contract_name, self.entry_point));
+        log::info!(
+            "================= Invoke::{:?} =================",
+            func_name
+        );
 
-    let mut state_cursor = Cursor::new(hex::decode(state_bytes).unwrap());
+        // State
+        let current_state: v1::trie::PersistentState = {
+            let state_bin =
+                std::fs::File::open(self.state_in_file).context("Could not read state file.")?;
+            let mut reader = std::io::BufReader::new(state_bin);
 
-    let state_schema: &FunctionV2 = contract_schema.receive.get(func_name).unwrap();
-    let types: &Type = state_schema.return_value().unwrap();
+            v1::trie::PersistentState::deserialize(&mut reader)
+                .context("Could not deserialize the provided state.")?
+        };
 
-    match types.to_json(&mut state_cursor) {
-        Ok(schema) => Ok(schema.to_string()),
-        Err(e) => Err(format!("Unable to parse state to json: {:?}", e)),
+        let mut loader = v1::trie::Loader::new(&[][..]);
+        let mut mutable_state = current_state.thaw();
+        let instance_state = v1::InstanceState::new(loader, mutable_state.get_inner(&mut loader));
+
+        let receive_invocation = v1::ReceiveInvocation {
+            amount,
+            receive_name: func_name.as_receive_name(),
+            parameter: self.parameter.as_ref(),
+            energy,
+        };
+
+        let receive_params = v1::ReceiveParams {
+            max_parameter_size: u16::MAX as usize,
+            limit_logs_and_return_values: false,
+            support_queries: true,
+        };
+
+        // Call
+        let res = v1::invoke_receive::<
+            _,
+            _,
+            _,
+            _,
+            context::ReceiveContextV1Opt,
+            context::ReceiveContextV1Opt,
+        >(
+            std::sync::Arc::clone(arc_art),
+            receive_context,
+            receive_invocation,
+            instance_state,
+            receive_params,
+        )
+        .context("Calling receive failed.")?;
+
+        // Result
+        check_receive_result(
+            res,
+            &mut loader,
+            mutable_state,
+            &schema,
+            self.contract_name,
+            self.entry_point.as_str(),
+            &energy,
+            &self.state_out_file,
+        )?;
+
+        Ok(())
     }
 }
+
+// pub fn deserializer(
+//     contract_name: &str,
+//     func_name: &str,
+//     state_bytes: String,
+//     schema: String,
+// ) -> Result<String, String> {
+//     let module_schema: ModuleV3 = match from_bytes(&hex::decode(schema).unwrap()) {
+//         Ok(o) => o,
+//         Err(e) => return Err(format!("unable to parse schema: {:#?}", e)),
+//     };
+
+//     let contract_schema: &ContractV3 = module_schema
+//         .contracts
+//         .get(contract_name)
+//         .ok_or_else(|| "Unable to get contract schema: not included in module schema")
+//         .unwrap();
+
+//     let mut state_cursor = Cursor::new(hex::decode(state_bytes).unwrap());
+
+//     let state_schema: &FunctionV2 = contract_schema.receive.get(func_name).unwrap();
+//     let types: &Type = state_schema.return_value().unwrap();
+
+//     match types.to_json(&mut state_cursor) {
+//         Ok(schema) => Ok(schema.to_string()),
+//         Err(e) => Err(format!("Unable to parse state to json: {:?}", e)),
+//     }
+// }
