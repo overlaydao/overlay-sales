@@ -1,4 +1,5 @@
 pub const NODE_ENDPOINT_V2: &str = "http://153.126.181.131:20001";
+pub const ACCOUNT_ADDRESS_SIZE: usize = 32;
 
 pub const CONTRACT_OPERATOR: &str = "ovl_operator";
 pub const MODREF_OPERATOR: &str =

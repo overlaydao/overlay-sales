@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use anyhow::anyhow;
+use concordium_contracts_common::schema::VersionedModuleSchema;
 use concordium_rust_sdk::{
     smart_contracts::common::Timestamp,
     types::smart_contracts::concordium_contracts_common::{
@@ -6,8 +9,36 @@ use concordium_rust_sdk::{
         OwnedEntrypointName, OwnedPolicy, Serial, SlotTime,
     },
 };
-use concordium_smart_contract_engine::{v0, v1, ExecResult};
+use concordium_smart_contract_engine::{
+    v0,
+    v1::{self, ProcessedImports},
+    ExecResult,
+};
+use concordium_wasm::artifact::{Artifact, CompiledFunction};
 use serde::Deserialize;
+
+pub struct ModuleInfo<'a> {
+    pub contract_name: &'static str,
+    pub schema: &'a VersionedModuleSchema,
+    pub artifact: &'a std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+}
+
+pub struct ChainContext<'a> {
+    pub modules: HashMap<u64, ModuleInfo<'a>>,
+}
+impl<'a> ChainContext<'a> {
+    pub fn add_module(&mut self, index: u64, module: ModuleInfo<'a>) {
+        self.modules.insert(index, module);
+    }
+
+    pub fn get_contract_name(&self, index: u64) -> anyhow::Result<&'static str> {
+        let mods = self.modules.get(&index);
+        if mods.is_none() {
+            anyhow::bail!("no module registerd in chain context!");
+        }
+        Ok(mods.unwrap().contract_name)
+    }
+}
 
 /// A chain metadata with an optional field.
 /// Used when simulating contracts to allow the user to only specify the

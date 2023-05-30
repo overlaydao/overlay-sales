@@ -1,3 +1,4 @@
+use crate::config::ACCOUNT_ADDRESS_SIZE;
 use crate::context;
 use anyhow::{bail, ensure, Context};
 use concordium_base::common::Deserial;
@@ -27,13 +28,12 @@ use concordium_smart_contract_engine::{
     InterpreterEnergy,
 };
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
+use ptree::{print_tree_with, PrintConfig, TreeBuilder};
 use std::{
     io::Read,
     path::{Path, PathBuf},
     str::FromStr,
 };
-
-use ptree::{print_tree_with, PrintConfig, TreeBuilder};
 
 use crate::context::ReceiveContextV1Opt;
 
@@ -66,200 +66,6 @@ pub fn test_init_context() -> context::InitContextOpt {
     let addr = account_address_bytes_from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")
         .unwrap();
     context::InitContextOpt::new(ts, Some(AccountAddress(addr)), None)
-}
-
-#[derive(serde::Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct InitEnvironment {
-    pub contract_name: &'static str,
-    pub context_file: &'static str,
-    pub param_file: Option<&'static str>,
-    pub state_out_file: Option<&'static str>,
-}
-
-impl InitEnvironment {
-    pub fn do_call(
-        &self,
-        // source: &Vec<u8>,
-        // arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
-        artifact: &Artifact<ProcessedImports, CompiledFunction>,
-        schema: &VersionedModuleSchema,
-        amount: Amount,
-        energy: InterpreterEnergy,
-    ) -> anyhow::Result<()> {
-        let func_name: String = format!("init_{}", self.contract_name);
-        log::info!("================= Init::{:?} =================", func_name);
-
-        // Context
-        let init_ctx: context::InitContextOpt = {
-            let ctx_content =
-                std::fs::read(self.context_file).context("Could not read init context file.")?;
-            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
-        };
-
-        // Parameter
-        let parameter = {
-            let mut init_param = Vec::new();
-            if let Some(param_file) = self.param_file {
-                let parameter_json = get_object_from_json(param_file.into())?;
-                let schema_parameter = &schema.get_init_param_schema(self.contract_name)?;
-                schema_parameter
-                    .serial_value_into(&parameter_json, &mut init_param)
-                    .context("Could not generate parameter bytes using schema and JSON.")?;
-            }
-            OwnedParameter::try_from(init_param).unwrap()
-        };
-
-        let mut loader = v1::trie::Loader::new(&[][..]);
-
-        // Call Init
-        let res = v1::invoke_init(
-            // std::sync::Arc::clone(arc_art),
-            artifact,
-            init_ctx,
-            InitInvocation {
-                amount,
-                init_name: &func_name,
-                parameter: parameter.as_ref(),
-                energy,
-            },
-            false,
-            loader,
-        )
-        .context("Initialization failed due to a runtime error.")?;
-
-        // let source_ctx = v1::InvokeFromSourceCtx {
-        //     source,
-        //     amount,
-        //     parameter: parameter.as_ref(),
-        //     energy,
-        //     support_upgrade: true,
-        // };
-        // let res = v1::invoke_init_with_metering_from_source(
-        //     source_ctx, init_ctx, &func_name, loader, false,
-        // )
-        // .context("Initialization failed due to a runtime error.")?;
-
-        check_init_result(
-            res,
-            &mut loader,
-            &schema,
-            self.contract_name,
-            &energy,
-            &self.state_out_file,
-        )?;
-
-        Ok(())
-    }
-}
-
-#[derive(serde::Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct ReceiveEnvironment {
-    pub contract_name: &'static str,
-    pub entry_point: &'static str,
-    pub context_file: &'static str,
-    pub param_file: Option<&'static str>,
-    pub state_in_file: &'static str,
-    pub state_out_file: Option<&'static str>,
-}
-
-impl ReceiveEnvironment {
-    pub fn do_call(
-        &self,
-        arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
-        schema: &VersionedModuleSchema,
-        amount: Amount,
-        energy: InterpreterEnergy,
-    ) -> anyhow::Result<()> {
-        let func_name =
-            OwnedReceiveName::new_unchecked(format!("{}.{}", self.contract_name, self.entry_point));
-        log::info!(
-            "================= Receive::{:?} =================",
-            func_name
-        );
-
-        // Context
-        let receive_context: context::ReceiveContextV1Opt = {
-            let ctx_content =
-                std::fs::read(self.context_file).context("Could not read init context file.")?;
-            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
-        };
-
-        // State
-        let current_state: v1::trie::PersistentState = {
-            let state_bin =
-                std::fs::File::open(self.state_in_file).context("Could not read state file.")?;
-            let mut reader = std::io::BufReader::new(state_bin);
-
-            v1::trie::PersistentState::deserialize(&mut reader)
-                .context("Could not deserialize the provided state.")?
-        };
-
-        let mut loader = v1::trie::Loader::new(&[][..]);
-        let mut mutable_state = current_state.thaw();
-        let instance_state = v1::InstanceState::new(loader, mutable_state.get_inner(&mut loader));
-
-        // Parameter
-        let parameter = {
-            let mut params = Vec::new();
-            if let Some(file) = self.param_file {
-                let parameter_json = get_object_from_json(file.into())?;
-                let schema_parameter =
-                    schema.get_receive_param_schema(self.contract_name, self.entry_point)?;
-                log::debug!("param > {:?}", parameter_json);
-                log::debug!("schema > {:?}", schema_parameter);
-                schema_parameter
-                    .serial_value_into(&parameter_json, &mut params)
-                    .context("Could not generate parameter bytes using schema and JSON.")?;
-            }
-            OwnedParameter::try_from(params).unwrap()
-        };
-
-        let receive_invocation = v1::ReceiveInvocation {
-            amount,
-            receive_name: func_name.as_receive_name(),
-            parameter: parameter.as_ref(),
-            energy,
-        };
-
-        let receive_params = v1::ReceiveParams {
-            max_parameter_size: u16::MAX as usize,
-            limit_logs_and_return_values: false,
-            support_queries: true,
-        };
-
-        // Call
-        let res = v1::invoke_receive::<
-            _,
-            _,
-            _,
-            _,
-            context::ReceiveContextV1Opt,
-            context::ReceiveContextV1Opt,
-        >(
-            std::sync::Arc::clone(arc_art),
-            receive_context,
-            receive_invocation,
-            instance_state,
-            receive_params,
-        )
-        .context("Calling receive failed.")?;
-
-        // Result
-        check_receive_result(
-            res,
-            &mut loader,
-            mutable_state,
-            &schema,
-            self.contract_name,
-            self.entry_point,
-            &energy,
-            &self.state_out_file,
-        )?;
-
-        Ok(())
-    }
 }
 
 pub fn get_wasm_module_from_file<P: AsRef<Path> + ToString>(
@@ -348,8 +154,6 @@ pub fn get_object_from_json(path: PathBuf) -> anyhow::Result<serde_json::Value> 
     Ok(parameter_json)
 }
 
-const ACCOUNT_ADDRESS_SIZE: usize = 32;
-
 pub fn account_address_bytes_from_str(v: &str) -> anyhow::Result<[u8; ACCOUNT_ADDRESS_SIZE]> {
     let mut buf = [0xff; 1 + ACCOUNT_ADDRESS_SIZE + 4];
     let len = bs58::decode(v).with_check(Some(1)).into(&mut buf)?;
@@ -416,7 +220,7 @@ pub fn print_state(
     mut state: v1::trie::MutableState,
     loader: &mut v1::trie::Loader<&[u8]>,
     should_display_state: bool,
-    out_bin_file: &Option<&str>,
+    out_bin_file: &str,
 ) -> anyhow::Result<()> {
     let mut collector = v1::trie::SizeCollector::default();
     let frozen = state.freeze(loader, &mut collector);
@@ -424,18 +228,304 @@ pub fn print_state(
         "The contract will produce {}B of additional state that will be charged for.",
         collector.collect()
     );
-    if let Some(file_path) = out_bin_file {
-        let mut out_file = std::fs::File::create(&file_path)
-            .context("Could not create file to write state into.")?;
-        frozen
-            .serialize(loader, &mut out_file)
-            .context("Could not write the state.")?;
-        log::info!("Resulting state written to {}.", file_path);
-    }
+
+    let mut out_file = std::fs::File::create(out_bin_file)
+        .context("Could not create file to write state into.")?;
+    frozen
+        .serialize(loader, &mut out_file)
+        .context("Could not write the state.")?;
+    log::info!("Resulting state written to {}.", out_bin_file);
+
     if should_display_state {
         display_state(&frozen)?;
     }
     Ok(())
+}
+
+// ----------------------------------
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct InitEnvironment {
+    pub contract_index: u64,
+    // pub contract_name: &'static str,
+    pub context_file: &'static str,
+    pub param_file: Option<&'static str>,
+    pub state_out_file: &'static str,
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ReceiveEnvironment {
+    pub contract_index: u64,
+    // pub contract_name: &'static str,
+    pub entry_point: &'static str,
+    pub param_file: Option<&'static str>,
+    pub context_file: &'static str,
+    pub state_in_file: &'static str,
+    pub state_out_file: &'static str,
+}
+
+#[derive(Debug)]
+pub struct InvokeEnvironment {
+    pub contract_index: u64,
+    // pub contract_name: &'static str,
+    pub entry_point: String,
+    pub parameter: OwnedParameter,
+    pub state_in_file: &'static str,
+    pub state_out_file: &'static str,
+}
+
+impl InitEnvironment {
+    pub fn do_call(
+        &self,
+        chain: &context::ChainContext,
+        // source: &Vec<u8>,
+        // arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+        // artifact: &Artifact<ProcessedImports, CompiledFunction>,
+        // schema: &VersionedModuleSchema,
+        amount: Amount,
+        energy: InterpreterEnergy,
+    ) -> anyhow::Result<()> {
+        // Chain - Module
+        let mods = chain.modules.get(&self.contract_index).unwrap();
+
+        let func_name: String = format!("init_{}", mods.contract_name);
+        log::info!("================= Init::{:?} =================", func_name);
+
+        // Context
+        let init_ctx: context::InitContextOpt = {
+            let ctx_content =
+                std::fs::read(self.context_file).context("Could not read init context file.")?;
+            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
+        };
+
+        // Parameter
+        let parameter = {
+            let mut init_param = Vec::new();
+            if let Some(param_file) = self.param_file {
+                let parameter_json = get_object_from_json(param_file.into())?;
+                let schema_parameter = &mods.schema.get_init_param_schema(mods.contract_name)?;
+                schema_parameter
+                    .serial_value_into(&parameter_json, &mut init_param)
+                    .context("Could not generate parameter bytes using schema and JSON.")?;
+            }
+            OwnedParameter::try_from(init_param).unwrap()
+        };
+
+        let mut loader = v1::trie::Loader::new(&[][..]);
+
+        // Call Init
+        let res = v1::invoke_init(
+            std::sync::Arc::clone(&mods.artifact),
+            init_ctx,
+            InitInvocation {
+                amount,
+                init_name: &func_name,
+                parameter: parameter.as_ref(),
+                energy,
+            },
+            false,
+            loader,
+        )
+        .context("Initialization failed due to a runtime error.")?;
+
+        check_init_result(
+            res,
+            &mut loader,
+            &mods.schema,
+            mods.contract_name,
+            &energy,
+            &self.state_out_file,
+        )?;
+
+        Ok(())
+    }
+}
+
+impl ReceiveEnvironment {
+    pub fn do_call(
+        &self,
+        chain: &context::ChainContext,
+        // arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+        // schema: &VersionedModuleSchema,
+        amount: Amount,
+        energy: InterpreterEnergy,
+    ) -> anyhow::Result<()> {
+        // Chain - Module
+        let mods = chain.modules.get(&self.contract_index).unwrap();
+
+        let func_name =
+            OwnedReceiveName::new_unchecked(format!("{}.{}", mods.contract_name, self.entry_point));
+        log::info!(
+            "================= Receive::{:?} =================",
+            func_name
+        );
+
+        // Context
+        let receive_context: context::ReceiveContextV1Opt = {
+            let ctx_content =
+                std::fs::read(self.context_file).context("Could not read init context file.")?;
+            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
+        };
+
+        // State
+        let current_state: v1::trie::PersistentState = {
+            let state_bin =
+                std::fs::File::open(self.state_in_file).context("Could not read state file.")?;
+            let mut reader = std::io::BufReader::new(state_bin);
+
+            v1::trie::PersistentState::deserialize(&mut reader)
+                .context("Could not deserialize the provided state.")?
+        };
+
+        let mut loader = v1::trie::Loader::new(&[][..]);
+        let mut mutable_state = current_state.thaw();
+        let instance_state = v1::InstanceState::new(loader, mutable_state.get_inner(&mut loader));
+
+        // Parameter
+        let parameter = {
+            let mut params = Vec::new();
+            if let Some(file) = self.param_file {
+                let parameter_json = get_object_from_json(file.into())?;
+                let schema_parameter = &mods
+                    .schema
+                    .get_receive_param_schema(mods.contract_name, self.entry_point)?;
+                log::debug!("param > {:?}", parameter_json);
+                log::debug!("schema > {:?}", schema_parameter);
+                schema_parameter
+                    .serial_value_into(&parameter_json, &mut params)
+                    .context("Could not generate parameter bytes using schema and JSON.")?;
+            }
+            OwnedParameter::try_from(params).unwrap()
+        };
+
+        let receive_invocation = v1::ReceiveInvocation {
+            amount,
+            receive_name: func_name.as_receive_name(),
+            parameter: parameter.as_ref(),
+            energy,
+        };
+
+        let receive_params = v1::ReceiveParams {
+            max_parameter_size: u16::MAX as usize,
+            limit_logs_and_return_values: false,
+            support_queries: true,
+        };
+
+        // Call
+        let res = v1::invoke_receive::<
+            _,
+            _,
+            _,
+            _,
+            context::ReceiveContextV1Opt,
+            context::ReceiveContextV1Opt,
+        >(
+            std::sync::Arc::clone(&mods.artifact),
+            receive_context,
+            receive_invocation,
+            instance_state,
+            receive_params,
+        )
+        .context("Calling receive failed.")?;
+
+        // Result
+        check_receive_result(
+            res,
+            chain,
+            &mut loader,
+            mutable_state,
+            &mods.schema,
+            mods.contract_name,
+            self.entry_point,
+            &energy,
+            &self.state_out_file,
+        )?;
+
+        Ok(())
+    }
+}
+
+impl InvokeEnvironment {
+    pub fn do_invoke(
+        &self,
+        chain: &context::ChainContext,
+        // arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+        // schema: &VersionedModuleSchema,
+        receive_context: context::ReceiveContextV1Opt,
+        amount: Amount,
+        energy: InterpreterEnergy,
+    ) -> anyhow::Result<()> {
+        // Chain - Module
+        let mods = chain.modules.get(&self.contract_index).unwrap();
+
+        let func_name =
+            OwnedReceiveName::new_unchecked(format!("{}.{}", mods.contract_name, self.entry_point));
+        log::info!(
+            "================= Invoke::{:?} =================",
+            func_name
+        );
+
+        // State
+        let current_state: v1::trie::PersistentState = {
+            let state_bin =
+                std::fs::File::open(self.state_in_file).context("Could not read state file.")?;
+            let mut reader = std::io::BufReader::new(state_bin);
+
+            v1::trie::PersistentState::deserialize(&mut reader)
+                .context("Could not deserialize the provided state.")?
+        };
+
+        let mut loader = v1::trie::Loader::new(&[][..]);
+        let mut mutable_state = current_state.thaw();
+        let instance_state = v1::InstanceState::new(loader, mutable_state.get_inner(&mut loader));
+
+        let receive_invocation = v1::ReceiveInvocation {
+            amount,
+            receive_name: func_name.as_receive_name(),
+            parameter: self.parameter.as_ref(),
+            energy,
+        };
+
+        let receive_params = v1::ReceiveParams {
+            max_parameter_size: u16::MAX as usize,
+            limit_logs_and_return_values: false,
+            support_queries: true,
+        };
+
+        // Call
+        let res = v1::invoke_receive::<
+            _,
+            _,
+            _,
+            _,
+            context::ReceiveContextV1Opt,
+            context::ReceiveContextV1Opt,
+        >(
+            std::sync::Arc::clone(&mods.artifact),
+            receive_context,
+            receive_invocation,
+            instance_state,
+            receive_params,
+        )
+        .context("Calling receive failed.")?;
+
+        // Result
+        check_receive_result(
+            res,
+            chain,
+            &mut loader,
+            mutable_state,
+            &mods.schema,
+            mods.contract_name,
+            self.entry_point.as_str(),
+            &energy,
+            &self.state_out_file,
+        )?;
+
+        Ok(())
+    }
 }
 
 pub fn get_schemas_for_init<'a>(
@@ -521,7 +611,7 @@ pub fn check_init_result(
     vschema: &VersionedModuleSchema,
     contract_name: &str,
     energy: &InterpreterEnergy,
-    state_out_file: &Option<&'static str>,
+    state_out_file: &'static str,
 ) -> anyhow::Result<()> {
     let (_, schema_return_value, schema_error, schema_event) =
         get_schemas_for_init(vschema, contract_name)?;
@@ -575,13 +665,14 @@ pub fn check_init_result(
 
 pub fn check_receive_result(
     res: ReceiveResult<CompiledFunction, ReceiveContextV1Opt>,
+    chain: &context::ChainContext,
     loader: &mut v1::trie::Loader<&[u8]>,
     mutable_state: MutableState,
     vschema: &VersionedModuleSchema,
     contract_name: &str,
     entrypoint: &str,
     energy: &InterpreterEnergy,
-    state_out_file: &Option<&'static str>,
+    state_out_file: &'static str,
 ) -> anyhow::Result<()> {
     let (_, schema_return_value, schema_error, schema_event) =
         get_schemas_for_receive(vschema, contract_name, entrypoint)?;
@@ -657,44 +748,31 @@ pub fn check_receive_result(
                         parameter
                     );
 
-                    // #[TODO]
                     // Context
                     let mut receive_context: context::ReceiveContextV1Opt = {
-                        let ctx_content = std::fs::read("./data/rido_usdc/ctx_upd.json")
+                        let ctx_content = std::fs::read("./data/rido_usdc/ctx_upd_ca.json")
                             .context("Could not read init context file.")?;
                         serde_json::from_slice(&ctx_content)
                             .context("Could not parse init context.")?
                     };
+                    // #[TODO]
                     // let addr = AccountAddress(account_address_bytes_from_str(
                     //     "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
                     // )
                     // .unwrap());
-                    let addr = ContractAddress::new(3496, 0);
-                    receive_context.common.set_sender(Address::from(addr));
+                    // let addr = ContractAddress::new(3496, 0);
+                    // receive_context.common.set_sender(Address::from(addr));
 
+                    let energy = InterpreterEnergy::from(1_000_000);
                     let x = InvokeEnvironment {
-                        contract_name: crate::config::CONTRACT_PUB_RIDO_USDC,
+                        contract_index: address.index,
                         entry_point: String::from(name),
                         parameter: OwnedParameter::new_unchecked(parameter),
-                        state_in_file: "./data/rido_usdc/state2.bin",
-                        state_out_file: Some("./data/rido_usdc/state3.bin"),
+                        state_in_file: "./data/rido_usdc/state.bin",
+                        state_out_file: "./data/rido_usdc/state.bin",
                     };
 
-                    let amount = Amount::zero();
-                    let energy = InterpreterEnergy::from(1_000_000);
-
-                    let pkg = "ovl-sale-usdc-public";
-                    let module_file = format!(
-                        "../../{}/target/concordium/wasm32-unknown-unknown/release/{}.wasm.v1",
-                        pkg,
-                        pkg.to_lowercase().replace('-', "_")
-                    );
-                    let wasm_module: WasmModule = get_wasm_module_from_file(module_file)?;
-                    let schema: VersionedModuleSchema = get_schema(&wasm_module)?;
-                    let artifact = get_artifact(&wasm_module)?;
-                    let arc_art = std::sync::Arc::new(artifact);
-
-                    x.do_call(&arc_art, &schema, receive_context, amount, energy);
+                    x.do_invoke(chain, receive_context, amount, energy);
                 },
 
                 v1::Interrupt::Upgrade { module_ref } => log::info!(
@@ -731,91 +809,6 @@ pub fn check_receive_result(
         },
     }
     Ok(())
-}
-
-#[derive(Debug)]
-pub struct InvokeEnvironment {
-    pub contract_name: &'static str,
-    pub entry_point: String,
-    pub parameter: OwnedParameter,
-    pub state_in_file: &'static str,
-    pub state_out_file: Option<&'static str>,
-}
-
-impl InvokeEnvironment {
-    pub fn do_call(
-        &self,
-        arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
-        schema: &VersionedModuleSchema,
-        receive_context: context::ReceiveContextV1Opt,
-        amount: Amount,
-        energy: InterpreterEnergy,
-    ) -> anyhow::Result<()> {
-        let func_name =
-            OwnedReceiveName::new_unchecked(format!("{}.{}", self.contract_name, self.entry_point));
-        log::info!(
-            "================= Invoke::{:?} =================",
-            func_name
-        );
-
-        // State
-        let current_state: v1::trie::PersistentState = {
-            let state_bin =
-                std::fs::File::open(self.state_in_file).context("Could not read state file.")?;
-            let mut reader = std::io::BufReader::new(state_bin);
-
-            v1::trie::PersistentState::deserialize(&mut reader)
-                .context("Could not deserialize the provided state.")?
-        };
-
-        let mut loader = v1::trie::Loader::new(&[][..]);
-        let mut mutable_state = current_state.thaw();
-        let instance_state = v1::InstanceState::new(loader, mutable_state.get_inner(&mut loader));
-
-        let receive_invocation = v1::ReceiveInvocation {
-            amount,
-            receive_name: func_name.as_receive_name(),
-            parameter: self.parameter.as_ref(),
-            energy,
-        };
-
-        let receive_params = v1::ReceiveParams {
-            max_parameter_size: u16::MAX as usize,
-            limit_logs_and_return_values: false,
-            support_queries: true,
-        };
-
-        // Call
-        let res = v1::invoke_receive::<
-            _,
-            _,
-            _,
-            _,
-            context::ReceiveContextV1Opt,
-            context::ReceiveContextV1Opt,
-        >(
-            std::sync::Arc::clone(arc_art),
-            receive_context,
-            receive_invocation,
-            instance_state,
-            receive_params,
-        )
-        .context("Calling receive failed.")?;
-
-        // Result
-        check_receive_result(
-            res,
-            &mut loader,
-            mutable_state,
-            &schema,
-            self.contract_name,
-            self.entry_point.as_str(),
-            &energy,
-            &self.state_out_file,
-        )?;
-
-        Ok(())
-    }
 }
 
 // pub fn deserializer(

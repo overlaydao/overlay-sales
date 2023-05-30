@@ -37,9 +37,8 @@ async fn main() -> Result<()> {
             let energy = InterpreterEnergy::from(1_000_000);
 
             // ====================================================================================
-            // Init
+            // Prepare for chain context
             // ====================================================================================
-
             // USDC
             let pkg = "cis2-bridgeable";
             let module_file = format!(
@@ -48,64 +47,97 @@ async fn main() -> Result<()> {
                 pkg.to_lowercase().replace('-', "_")
             );
             let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
-            println!("module reference: {:?}", wasm_module.get_module_ref());
-
+            // wasm_module.source.as_ref()
             let schema_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
+            let artifact = utils::get_artifact(&wasm_module)?;
+            let arc_art_usdc = std::sync::Arc::new(artifact);
             // types::usdc::test(&schema_usdc, CONTRACT_USDC, "deposit");
-            let artifact_usdc = utils::get_artifact(&wasm_module)?;
-            let arc_art_usdc = std::sync::Arc::new(artifact_usdc);
+
+            // RIDO_USDC_PUBLIC
+            let pkg = "ovl-sale-usdc-public";
+            let module_file = format!(
+                "../../{}/target/concordium/wasm32-unknown-unknown/release/{}.wasm.v1",
+                pkg,
+                pkg.to_lowercase().replace('-', "_")
+            );
+            let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
+            let schema_rido_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
+            let artifact = utils::get_artifact(&wasm_module)?;
+            let arc_art_rido_usdc = std::sync::Arc::new(artifact);
+
+            // Chain Context
+            let mut modules = std::collections::HashMap::new();
+            let mut chain = context::ChainContext { modules };
+            chain.add_module(
+                3496,
+                context::ModuleInfo {
+                    contract_name: CONTRACT_USDC,
+                    schema: &schema_usdc,
+                    artifact: &arc_art_usdc,
+                },
+            );
+            chain.add_module(
+                0,
+                context::ModuleInfo {
+                    contract_name: CONTRACT_PUB_RIDO_USDC,
+                    schema: &schema_rido_usdc,
+                    artifact: &arc_art_rido_usdc,
+                },
+            );
+
+            // ====================================================================================
+            // Init
+            // ====================================================================================
 
             let init_env_usdc = utils::InitEnvironment {
-                contract_name: CONTRACT_USDC,
+                contract_index: 3496,
                 context_file: "./data/usdc/ctx_init.json",
                 param_file: Some("./data/usdc/p_init.json"),
-                state_out_file: Some("./data/usdc/state.bin"),
+                state_out_file: "./data/usdc/state.bin",
             };
-            // init_env_usdc.do_call(wasm_module.source.as_ref(), &schema_usdc, amount, energy)?;
-            init_env_usdc.do_call(&arc_art_usdc, &schema_usdc, amount, energy)?;
+            init_env_usdc.do_call(&chain, amount, energy)?;
 
             // ====================================================================================
-            // Updates
+            // Receive
             // ====================================================================================
 
-            // Receive ---------------------------------------
             let envs = vec![
                 utils::ReceiveEnvironment {
-                    contract_name: CONTRACT_USDC,
+                    contract_index: 3496,
                     entry_point: "grantRole",
-                    context_file: "./data/usdc/ctx_upd.json",
                     param_file: Some("./data/usdc/p_grant_role.json"),
+                    context_file: "./data/usdc/ctx_upd.json",
                     state_in_file: "./data/usdc/state.bin",
-                    state_out_file: Some("./data/usdc/state2.bin"),
+                    state_out_file: "./data/usdc/state.bin",
                 },
                 utils::ReceiveEnvironment {
-                    contract_name: CONTRACT_USDC,
+                    contract_index: 3496,
                     entry_point: "deposit",
-                    context_file: "./data/usdc/ctx_upd.json",
                     param_file: Some("./data/usdc/p_deposit.json"),
-                    state_in_file: "./data/usdc/state2.bin",
-                    state_out_file: Some("./data/usdc/state3.bin"),
+                    context_file: "./data/usdc/ctx_upd.json",
+                    state_in_file: "./data/usdc/state.bin",
+                    state_out_file: "./data/usdc/state.bin",
                 },
                 utils::ReceiveEnvironment {
-                    contract_name: CONTRACT_USDC,
+                    contract_index: 3496,
                     entry_point: "transfer",
-                    context_file: "./data/usdc/ctx_upd.json",
                     param_file: Some("./data/usdc/p_transfer_contract.json"),
-                    state_in_file: "./data/usdc/state3.bin",
-                    state_out_file: Some("./data/usdc/state4.bin"),
+                    context_file: "./data/usdc/ctx_upd.json",
+                    state_in_file: "./data/usdc/state.bin",
+                    state_out_file: "./data/usdc/state.bin",
                 },
                 utils::ReceiveEnvironment {
-                    contract_name: CONTRACT_USDC,
+                    contract_index: 3496,
                     entry_point: "balanceOf",
-                    context_file: "./data/usdc/ctx_upd.json",
                     param_file: Some("./data/usdc/p_balanceof.json"),
-                    state_in_file: "./data/usdc/state4.bin",
-                    state_out_file: Some("./data/usdc/state5.bin"),
+                    context_file: "./data/usdc/ctx_upd.json",
+                    state_in_file: "./data/usdc/state.bin",
+                    state_out_file: "./data/usdc/state.bin",
                 },
             ];
 
             for env in envs {
-                env.do_call(&arc_art_usdc, &schema_usdc, amount, energy)?;
+                env.do_call(&chain, amount, energy)?;
             }
 
             // ====================================================================================
