@@ -4,7 +4,7 @@ use crate::utils::*;
 use anyhow::{bail, ensure, Context};
 use chrono::{TimeZone, Utc};
 use concordium_contracts_common::{
-    schema::VersionedModuleSchema, Address, Amount, ContractAddress, OwnedParameter,
+    constants, schema::VersionedModuleSchema, Address, Amount, ContractAddress, OwnedParameter,
     OwnedReceiveName, Timestamp,
 };
 use concordium_smart_contract_engine::{
@@ -129,6 +129,10 @@ impl ReceiveEnvironment {
             }
             OwnedParameter::try_from(params).unwrap()
         };
+
+        if parameter.as_ref().len() > constants::MAX_PARAMETER_LEN {
+            bail!("exceed parameter limit!");
+        }
 
         let receive_invocation = v1::ReceiveInvocation {
             amount,

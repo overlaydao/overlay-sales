@@ -4,7 +4,7 @@ use crate::utils::*;
 use anyhow::{bail, ensure, Context};
 use chrono::{TimeZone, Utc};
 use concordium_contracts_common::{
-    schema::VersionedModuleSchema, Amount, OwnedParameter, Timestamp,
+    constants, schema::VersionedModuleSchema, Amount, OwnedParameter, Timestamp,
 };
 use concordium_smart_contract_engine::{
     v0::HasChainMetadata,
@@ -66,6 +66,10 @@ impl InitEnvironment {
             }
             OwnedParameter::try_from(init_param).unwrap()
         };
+
+        if parameter.as_ref().len() > constants::MAX_PARAMETER_LEN {
+            bail!("exceed parameter limit!");
+        }
 
         let mut loader = v1::trie::Loader::new(&[][..]);
 

@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
         CONTRACT_USDC,
         module_file,
         AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
-        "./data/0/usdc/",
+        "./data/1/usdc/",
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
         CONTRACT_PUB_RIDO_USDC,
         module_file,
         AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
-        "./data/0/rido_usdc/",
+        "./data/1/rido/",
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -121,18 +121,34 @@ async fn main() -> Result<()> {
     let envs = vec![
         env::receive::ReceiveEnvironment {
             contract_index: 10,
-            slot_time: "2023-05-28T06:00:00Z",
+            slot_time: "2023-05-30T06:00:00Z",
             invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
-            entry_point: "setStatus",
-            param_file: Some("p_set_status.json"),
+            entry_point: "whitelisting",
+            param_file: Some("p_whitelisted.json"),
             ..Default::default()
         },
+        // env::receive::ReceiveEnvironment {
+        //     contract_index: 10,
+        //     slot_time: "2023-05-30T06:00:00Z",
+        //     invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+        //     entry_point: "setStatus",
+        //     param_file: Some("p_set_status.json"),
+        //     ..Default::default()
+        // },
         env::receive::ReceiveEnvironment {
             contract_index: 3496,
-            slot_time: "2023-05-28T06:11:00Z",
+            slot_time: "2023-06-01T12:00:00Z",
             invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
             entry_point: "transfer", // invoke userDeposit
             param_file: Some("p_transfer_contract.json"),
+            ..Default::default()
+        },
+        env::receive::ReceiveEnvironment {
+            contract_index: 10,
+            slot_time: "2023-06-05T12:01:00Z",
+            invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+            entry_point: "setFixed",
+            param_file: None,
             ..Default::default()
         },
     ];
@@ -144,7 +160,7 @@ async fn main() -> Result<()> {
     let envs = vec![
         env::receive::ReceiveEnvironment {
             contract_index: 10,
-            slot_time: "2023-05-28T06:00:00Z",
+            slot_time: "2023-06-10T06:00:00Z",
             invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
             entry_point: "view",
             param_file: None,
@@ -152,7 +168,7 @@ async fn main() -> Result<()> {
         },
         env::receive::ReceiveEnvironment {
             contract_index: 3496,
-            slot_time: "2023-05-28T06:00:00Z",
+            slot_time: "2023-06-10T06:00:00Z",
             invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
             entry_point: "balanceOf",
             param_file: Some("p_balanceof.json"),
