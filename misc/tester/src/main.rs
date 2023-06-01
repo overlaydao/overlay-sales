@@ -36,13 +36,16 @@ async fn main() -> Result<()> {
             let amount = Amount::zero();
             let energy = InterpreterEnergy::from(1_000_000);
 
-            // let ctx = context::InitContextOpt {
-            //     ..Default::default()
-            // };
-            // println!("{:?}", ctx);
+            // Chain Context
+            let mut modules = std::collections::HashMap::new();
+            let mut chain = context::ChainContext { modules };
+
+            // AccountAddress::from_str(
+            //             "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+            //         )?
 
             // ====================================================================================
-            // Prepare for chain context
+            // Prepare for chain context - Instantiate
             // ====================================================================================
             // USDC
             let pkg = "cis2-bridgeable";
@@ -51,12 +54,19 @@ async fn main() -> Result<()> {
                 pkg,
                 pkg.to_lowercase().replace('-', "_")
             );
-            let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
-            // wasm_module.source.as_ref()
-            let schema_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
-            let artifact = utils::get_artifact(&wasm_module)?;
-            let arc_art_usdc = std::sync::Arc::new(artifact);
-            // types::usdc::test(&schema_usdc, CONTRACT_USDC, "deposit");
+            chain.add_instance(
+                3496,
+                CONTRACT_USDC,
+                module_file,
+                "./data/1/usdc/",
+                utils::InitEnvironment {
+                    context_file: "ctx_init.json",
+                    param_file: Some("p_init.json"),
+                    state_out_file: "state.bin",
+                },
+                amount,
+                energy,
+            );
 
             // RIDO_USDC_PUBLIC
             let pkg = "ovl-sale-usdc-public";
@@ -65,59 +75,19 @@ async fn main() -> Result<()> {
                 pkg,
                 pkg.to_lowercase().replace('-', "_")
             );
-            let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
-            let schema_rido_usdc: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
-            let artifact = utils::get_artifact(&wasm_module)?;
-            let arc_art_rido_usdc = std::sync::Arc::new(artifact);
-
-            // Chain Context
-            let mut modules = std::collections::HashMap::new();
-            let mut chain = context::ChainContext { modules };
-
-            // #[Todo] move to init do_call
-            chain.add_module(
-                3496,
-                context::ModuleInfo {
-                    contract_name: CONTRACT_USDC,
-                    owner: AccountAddress::from_str(
-                        "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
-                    )?,
-                    schema: &schema_usdc,
-                    artifact: &arc_art_usdc,
-                },
-            );
-            chain.add_module(
+            chain.add_instance(
                 10,
-                context::ModuleInfo {
-                    contract_name: CONTRACT_PUB_RIDO_USDC,
-                    owner: AccountAddress::from_str(
-                        "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
-                    )?,
-                    schema: &schema_rido_usdc,
-                    artifact: &arc_art_rido_usdc,
+                CONTRACT_PUB_RIDO_USDC,
+                module_file,
+                "./data/1/rido_usdc/",
+                utils::InitEnvironment {
+                    context_file: "ctx_init.json",
+                    param_file: Some("p_init_pub_usdc.json"),
+                    state_out_file: "state.bin",
                 },
+                amount,
+                energy,
             );
-
-            // ====================================================================================
-            // Init
-            // ====================================================================================
-
-            let init_env_usdc = utils::InitEnvironment {
-                contract_index: 3496,
-                context_file: "./data/usdc/ctx_init.json",
-                param_file: Some("./data/usdc/p_init.json"),
-                state_out_file: "./data/usdc/state.bin",
-            };
-
-            let init_env_rido_usdc = utils::InitEnvironment {
-                contract_index: 10,
-                context_file: "./data/rido_usdc/ctx_init.json",
-                param_file: Some("./data/rido_usdc/p_init_pub_usdc.json"),
-                state_out_file: "./data/rido_usdc/state.bin",
-            };
-
-            init_env_usdc.do_call(&chain, amount, energy)?;
-            init_env_rido_usdc.do_call(&chain, amount, energy)?;
 
             // ====================================================================================
             // Receive
@@ -127,50 +97,38 @@ async fn main() -> Result<()> {
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
                     entry_point: "grantRole",
-                    param_file: Some("./data/usdc/p_grant_role.json"),
-                    context_file: "./data/usdc/ctx_upd.json",
-                    state_in_file: "./data/usdc/state.bin",
-                    state_out_file: "./data/usdc/state.bin",
+                    param_file: Some("p_grant_role.json"),
+                    ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 10,
                     entry_point: "setStatus",
-                    param_file: Some("./data/rido_usdc/p_set_status.json"),
-                    context_file: "./data/rido_usdc/ctx_upd.json",
-                    state_in_file: "./data/rido_usdc/state.bin",
-                    state_out_file: "./data/rido_usdc/state.bin",
+                    param_file: Some("p_set_status.json"),
+                    ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 10,
                     entry_point: "view",
                     param_file: None,
-                    context_file: "./data/rido_usdc/ctx_upd.json",
-                    state_in_file: "./data/rido_usdc/state.bin",
-                    state_out_file: "./data/rido_usdc/state.bin",
+                    ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
                     entry_point: "deposit",
-                    param_file: Some("./data/usdc/p_deposit.json"),
-                    context_file: "./data/usdc/ctx_upd.json",
-                    state_in_file: "./data/usdc/state.bin",
-                    state_out_file: "./data/usdc/state.bin",
+                    param_file: Some("p_deposit.json"),
+                    ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
-                    entry_point: "transfer",
-                    param_file: Some("./data/usdc/p_transfer_contract.json"),
-                    context_file: "./data/usdc/ctx_upd.json",
-                    state_in_file: "./data/usdc/state.bin",
-                    state_out_file: "./data/usdc/state.bin",
+                    entry_point: "transfer", // invoke userDeposit
+                    param_file: Some("p_transfer_contract.json"),
+                    ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
                     entry_point: "balanceOf",
-                    param_file: Some("./data/usdc/p_balanceof.json"),
-                    context_file: "./data/usdc/ctx_upd.json",
-                    state_in_file: "./data/usdc/state.bin",
-                    state_out_file: "./data/usdc/state.bin",
+                    param_file: Some("p_balanceof.json"),
+                    ..Default::default()
                 },
             ];
 

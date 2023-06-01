@@ -543,22 +543,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "concordium-smart-contract-testing"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "410933b32dcb534b942939244d00706aa91daa1ac3a1f2f0efea32bf960ad73d"
-dependencies = [
- "anyhow",
- "concordium-smart-contract-engine",
- "concordium-wasm",
- "concordium_base",
- "num-bigint 0.4.3",
- "num-integer",
- "sha2 0.10.6",
- "thiserror",
-]
-
-[[package]]
 name = "concordium-std"
 version = "6.1.1"
 dependencies = [
@@ -2447,7 +2431,6 @@ dependencies = [
  "concordium-contracts-common 6.0.0",
  "concordium-rust-sdk",
  "concordium-smart-contract-engine",
- "concordium-smart-contract-testing",
  "concordium-std",
  "concordium-wasm",
  "concordium_base",

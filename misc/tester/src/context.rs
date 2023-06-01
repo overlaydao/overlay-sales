@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
+use crate::utils;
 use anyhow::anyhow;
+use concordium_base::smart_contracts::WasmModule;
 use concordium_contracts_common::schema::VersionedModuleSchema;
 use concordium_rust_sdk::{
     smart_contracts::common::Timestamp,
@@ -12,23 +12,53 @@ use concordium_rust_sdk::{
 use concordium_smart_contract_engine::{
     v0,
     v1::{self, ProcessedImports},
-    ExecResult,
+    ExecResult, InterpreterEnergy,
 };
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
 use serde::Deserialize;
+use std::collections::HashMap;
 
-pub struct ModuleInfo<'a> {
+pub struct ModuleInfo {
     pub contract_name: &'static str,
-    pub owner: AccountAddress,
-    pub schema: &'a VersionedModuleSchema,
-    pub artifact: &'a std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
+    pub data_dir: &'static str,
+    pub schema: VersionedModuleSchema,
+    pub artifact: std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
 }
 
-pub struct ChainContext<'a> {
-    pub modules: HashMap<u64, ModuleInfo<'a>>,
+pub struct ChainContext {
+    pub modules: HashMap<u64, ModuleInfo>,
 }
-impl<'a> ChainContext<'a> {
-    pub fn add_module(&mut self, index: u64, module: ModuleInfo<'a>) {
+
+impl ChainContext {
+    pub fn add_instance(
+        &mut self,
+        index: u64,
+        contract_name: &'static str,
+        module_file: String,
+        data_dir: &'static str,
+        env: utils::InitEnvironment,
+        amount: Amount,
+        energy: InterpreterEnergy,
+    ) -> anyhow::Result<()> {
+        let wasm_module: WasmModule = utils::get_wasm_module_from_file(module_file)?;
+        let vschema: VersionedModuleSchema = utils::get_schema(&wasm_module)?;
+        let artifact = utils::get_artifact(&wasm_module)?;
+        let arc_art = std::sync::Arc::new(artifact);
+        // wasm_module.source.as_ref()
+        // types::usdc::test(&schema_usdc, CONTRACT_USDC, "deposit");
+
+        let mod_info = ModuleInfo {
+            contract_name,
+            data_dir,
+            schema: vschema,
+            artifact: arc_art,
+        };
+        env.do_call(&mod_info, amount, energy)?;
+        self.modules.insert(index, mod_info);
+        Ok(())
+    }
+
+    pub fn add_module(&mut self, index: u64, module: ModuleInfo) {
         self.modules.insert(index, module);
     }
 
