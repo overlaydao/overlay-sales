@@ -38,7 +38,7 @@ impl ChainContext {
         module_file: String,
         owner: AccountAddress,
         data_dir: &'static str,
-        env: utils::InitEnvironment,
+        env: crate::env::init::InitEnvironment,
         amount: Amount,
         energy: InterpreterEnergy,
     ) -> anyhow::Result<()> {
@@ -199,8 +199,16 @@ pub struct ReceiveContextOpt {
 }
 
 impl ReceiveContextOpt {
+    pub fn set_owner(&mut self, acc: AccountAddress) -> () {
+        self.owner = Some(acc);
+    }
+
     pub fn set_sender(&mut self, addr: Address) -> () {
         self.sender = Some(addr);
+    }
+
+    pub fn set_self_address(&mut self, index: u64) -> () {
+        self.self_address = Some(ContractAddress::new(index, 0));
     }
 }
 

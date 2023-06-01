@@ -1,6 +1,7 @@
 #![allow(unused)]
 pub mod config;
 pub mod context;
+pub mod env;
 pub mod types;
 pub mod utils;
 
@@ -47,16 +48,15 @@ pub struct Cli {
     /// Flag
     #[arg(short, long, action = ArgAction::SetTrue)]
     pub verbose: bool,
-
-    #[command(subcommand)]
-    pub command: Option<Commands>,
+    // #[command(subcommand)]
+    // pub command: Option<Commands>,
 }
 
-#[derive(Subcommand, Debug)]
-pub enum Commands {
-    /// current timestamp plus h
-    Timestamp {
-        #[arg(short = 'o', long, default_value = "24")]
-        hour: i64,
-    },
-}
+// #[derive(Subcommand, Debug)]
+// pub enum Commands {
+//     /// current timestamp plus h
+//     Timestamp {
+//         #[arg(short = 'o', long, default_value = "24")]
+//         hour: i64,
+//     },
+// }
