@@ -40,10 +40,6 @@ async fn main() -> Result<()> {
             let mut modules = std::collections::HashMap::new();
             let mut chain = context::ChainContext { modules };
 
-            // AccountAddress::from_str(
-            //             "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
-            //         )?
-
             // ====================================================================================
             // Prepare for chain context - Instantiate
             // ====================================================================================
@@ -58,9 +54,11 @@ async fn main() -> Result<()> {
                 3496,
                 CONTRACT_USDC,
                 module_file,
+                AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
                 "./data/1/usdc/",
                 utils::InitEnvironment {
-                    context_file: "ctx_init.json",
+                    slot_time: "2023-05-28T06:00:00Z",
+                    context_file: None,
                     param_file: Some("p_init.json"),
                     state_out_file: "state.bin",
                 },
@@ -79,9 +77,11 @@ async fn main() -> Result<()> {
                 10,
                 CONTRACT_PUB_RIDO_USDC,
                 module_file,
+                AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
                 "./data/1/rido_usdc/",
                 utils::InitEnvironment {
-                    context_file: "ctx_init.json",
+                    slot_time: "2023-05-28T06:00:00Z",
+                    context_file: None,
                     param_file: Some("p_init_pub_usdc.json"),
                     state_out_file: "state.bin",
                 },
@@ -96,36 +96,48 @@ async fn main() -> Result<()> {
             let envs = vec![
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
+                    slot_time: "2023-05-28T06:00:00Z",
+                    invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
                     entry_point: "grantRole",
                     param_file: Some("p_grant_role.json"),
                     ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 10,
+                    slot_time: "2023-05-28T06:00:00Z",
+                    invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
                     entry_point: "setStatus",
                     param_file: Some("p_set_status.json"),
                     ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 10,
+                    slot_time: "2023-05-28T06:00:00Z",
+                    invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
                     entry_point: "view",
                     param_file: None,
                     ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
+                    slot_time: "2023-05-28T06:00:00Z",
+                    invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
                     entry_point: "deposit",
                     param_file: Some("p_deposit.json"),
                     ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
+                    slot_time: "2023-05-28T06:00:00Z",
+                    invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
                     entry_point: "transfer", // invoke userDeposit
                     param_file: Some("p_transfer_contract.json"),
                     ..Default::default()
                 },
                 utils::ReceiveEnvironment {
                     contract_index: 3496,
+                    slot_time: "2023-05-28T06:00:00Z",
+                    invoker: "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
                     entry_point: "balanceOf",
                     param_file: Some("p_balanceof.json"),
                     ..Default::default()

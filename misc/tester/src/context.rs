@@ -16,10 +16,11 @@ use concordium_smart_contract_engine::{
 };
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 pub struct ModuleInfo {
     pub contract_name: &'static str,
+    pub owner: AccountAddress,
     pub data_dir: &'static str,
     pub schema: VersionedModuleSchema,
     pub artifact: std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
@@ -35,6 +36,7 @@ impl ChainContext {
         index: u64,
         contract_name: &'static str,
         module_file: String,
+        owner: AccountAddress,
         data_dir: &'static str,
         env: utils::InitEnvironment,
         amount: Amount,
@@ -49,6 +51,7 @@ impl ChainContext {
 
         let mod_info = ModuleInfo {
             contract_name,
+            owner,
             data_dir,
             schema: vschema,
             artifact: arc_art,
@@ -259,6 +262,31 @@ pub struct ReceiveContextV1Opt {
     #[serde(flatten)]
     pub common: ReceiveContextOpt,
     entrypoint: Option<OwnedEntrypointName>,
+}
+
+impl ReceiveContextV1Opt {
+    pub fn new(ts: Timestamp, index: u64, owner: Option<AccountAddress>, invoker: &str) -> Self {
+        let self_address = Some(ContractAddress::new(index, 0));
+
+        let (invoker, sender) = if invoker == "" {
+            (None, None)
+        } else {
+            let invoker = AccountAddress::from_str(invoker).unwrap();
+            (Some(invoker), Some(Address::from(invoker)))
+        };
+
+        Self {
+            common: ReceiveContextOpt {
+                metadata: ChainMetadataOpt::new(ts),
+                self_address,
+                owner,
+                sender,
+                invoker,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
 }
 
 impl v0::HasReceiveContext for ReceiveContextV1Opt {

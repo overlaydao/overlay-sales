@@ -1,6 +1,7 @@
 use crate::config::ACCOUNT_ADDRESS_SIZE;
 use crate::context;
 use anyhow::{bail, ensure, Context};
+use chrono::{TimeZone, Utc};
 use concordium_base::common::Deserial;
 use concordium_contracts_common::{
     schema::{FunctionV2, Type, VersionedModuleSchema},
@@ -20,7 +21,7 @@ use concordium_rust_sdk::{
     v2::{BlockIdentifier, Client, Endpoint},
 };
 use concordium_smart_contract_engine::{
-    v0::HasReceiveContext,
+    v0::{HasChainMetadata, HasReceiveContext},
     v1::{
         self, trie::MutableState, InitInvocation, InitResult, ProcessedImports, ReceiveResult,
         ReturnValue,
@@ -165,6 +166,14 @@ pub fn account_address_bytes_from_str(v: &str) -> anyhow::Result<[u8; ACCOUNT_AD
     let mut address_bytes = [0u8; ACCOUNT_ADDRESS_SIZE];
     address_bytes.copy_from_slice(&buf[1..1 + ACCOUNT_ADDRESS_SIZE]);
     Ok(address_bytes)
+}
+
+pub fn account_address_string_from_byte(bytes: [u8; 32]) -> anyhow::Result<String> {
+    let mut encoded = String::with_capacity(50);
+    let mut decoded: Vec<u8> = [1].iter().chain(bytes.iter()).map(|v| *v).collect();
+    let decoded: [u8; 33] = decoded.try_into().unwrap();
+    bs58::encode(decoded).with_check().into(&mut encoded)?;
+    Ok(encoded)
 }
 
 pub fn display_state(state: &v1::trie::PersistentState) -> anyhow::Result<()> {
@@ -324,7 +333,8 @@ pub fn get_schemas_for_receive<'a>(
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct InitEnvironment {
-    pub context_file: &'static str,
+    pub slot_time: &'static str,
+    pub context_file: Option<&'static str>,
     pub param_file: Option<&'static str>,
     pub state_out_file: &'static str,
 }
@@ -333,9 +343,11 @@ pub struct InitEnvironment {
 #[serde(rename_all = "camelCase")]
 pub struct ReceiveEnvironment {
     pub contract_index: u64,
+    pub slot_time: &'static str,
+    pub invoker: &'static str,
     pub entry_point: &'static str,
     pub param_file: Option<&'static str>,
-    pub context_file: &'static str,
+    pub context_file: Option<&'static str>,
     pub state_in_file: &'static str,
     pub state_out_file: &'static str,
 }
@@ -344,9 +356,11 @@ impl Default for ReceiveEnvironment {
     fn default() -> Self {
         Self {
             contract_index: 0,
+            slot_time: "",
+            invoker: "",
             entry_point: "",
             param_file: None,
-            context_file: "ctx_upd.json",
+            context_file: None,
             state_in_file: "state.bin",
             state_out_file: "state.bin",
         }
@@ -377,11 +391,22 @@ impl InitEnvironment {
         log::info!("================= Init::{:?} =================", func_name);
 
         // Context
-        let init_ctx: context::InitContextOpt = {
-            let f = format!("{}{}", mods.data_dir, self.context_file);
+        let init_ctx: context::InitContextOpt = if let Some(context_file) = self.context_file {
+            // #[Todo] should not overwrite owner property even if the file provided.
+            let f = format!("{}{}", mods.data_dir, context_file);
             let ctx_content = std::fs::read(f).context("Could not read init context file.")?;
             serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
+        } else {
+            let dt = chrono::DateTime::parse_from_rfc3339(self.slot_time).unwrap();
+            let ts = Timestamp::from_timestamp_millis(dt.timestamp_millis() as u64);
+            context::InitContextOpt::new(ts, Some(mods.owner), None)
         };
+
+        log::info!(
+            "Current Time: {:?}",
+            Utc.timestamp_millis_opt(init_ctx.metadata.slot_time()?.timestamp_millis() as i64)
+                .unwrap()
+        );
 
         // Parameter
         let parameter = {
@@ -447,11 +472,32 @@ impl ReceiveEnvironment {
         );
 
         // Context
-        let mut receive_context: context::ReceiveContextV1Opt = {
-            let f = format!("{}{}", mods.data_dir, self.context_file);
-            let ctx_content = std::fs::read(f).context("Could not read init context file.")?;
-            serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
-        };
+        let mut receive_context: context::ReceiveContextV1Opt =
+            if let Some(context_file) = self.context_file {
+                // #[Todo] should not overwrite owner property even if the file provided.
+                let f = format!("{}{}", mods.data_dir, context_file);
+                let ctx_content = std::fs::read(f).context("Could not read init context file.")?;
+                serde_json::from_slice(&ctx_content).context("Could not parse init context.")?
+            } else {
+                let dt = chrono::DateTime::parse_from_rfc3339(self.slot_time).unwrap();
+                let ts = Timestamp::from_timestamp_millis(dt.timestamp_millis() as u64);
+                context::ReceiveContextV1Opt::new(
+                    ts,
+                    self.contract_index,
+                    Some(mods.owner),
+                    self.invoker,
+                )
+            };
+        // println!("{:#?}", receive_context);
+
+        log::info!(
+            "\nCurrent Time: {:?}\nSender: {:?}",
+            Utc.timestamp_millis_opt(
+                receive_context.metadata().slot_time()?.timestamp_millis() as i64
+            )
+            .unwrap(),
+            receive_context.sender()
+        );
 
         // State
         let current_state: v1::trie::PersistentState = {
