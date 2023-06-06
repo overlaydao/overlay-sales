@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
         CONTRACT_USDC,
         module_file,
         AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
-        "./data/0/usdc/",
+        "./p/0/usdc/",
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
         CONTRACT_PUB_RIDO_USDC,
         module_file,
         AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
-        "./data/0/rido_usdc/",
+        "./p/0/rido_usdc/",
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,

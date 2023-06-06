@@ -1,0 +1,27 @@
+{
+  "operator": {
+    "Contract": [{"index": 4513,"subindex": 0}]
+  },
+  "usdc_contract": {"index": 3496,"subindex": 0},
+  "proj_admin": "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+  "addr_ovl": {
+    "Account": ["3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1"]
+  },
+  "addr_bbb": {
+    "Contract": [{"index": 4513,"subindex": 0}]
+  },
+  "open_at": [
+    ["2023-05-28T06:07:00Z", {"TOP":[]}],
+    ["2023-05-28T06:10:00Z", {"ANY":[]}]
+  ],
+  "close_at": "2023-05-28T06:15:00Z",
+  "vesting_period": [
+    ["3m", 30],
+    ["5m", 40],
+    ["8m", 30]
+  ],
+  "price_per_token": 500,
+  "token_per_unit": "200" ,
+  "max_units": 100,
+  "min_units": 1
+}

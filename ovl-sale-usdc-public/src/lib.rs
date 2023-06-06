@@ -186,7 +186,7 @@ struct AllowedUserParams {
 #[receive(
     contract = "pub_rido_usdc",
     name = "whitelisting",
-    parameter = "Vec<AllowedUserParams>",
+    parameter = "WhitelistingParams",
     error = "ContractError",
     mutable
 )]
