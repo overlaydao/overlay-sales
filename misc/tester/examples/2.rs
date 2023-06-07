@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
         CONTRACT_USDC,
         module_file,
         AccountAddress::from_str(usdc_owner)?,
-        "./p/1/usdc/",
+        "./p/2/usdc/",
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
         CONTRACT_PUB_RIDO_USDC,
         module_file,
         AccountAddress::from_str(team_ovl)?,
-        "./p/1/rido/",
+        "./p/2/rido/",
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
         CONTRACT_PROJECT_TOKEN,
         module_file,
         AccountAddress::from_str(proj_admin)?,
-        "./p/1/pjtoken/",
+        "./p/2/pjtoken/",
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -113,9 +113,8 @@ async fn main() -> Result<()> {
     );
 
     // ====================================================================================
-    // Receive
+    // Prepare
     // ====================================================================================
-
     let envs = vec![
         env::receive::ReceiveEnvironment {
             contract_index: 3496,
@@ -157,8 +156,10 @@ async fn main() -> Result<()> {
             param_file: Some("p_mint.json"),
             ..Default::default()
         },
-        // ---------------------------------------
-        // Sale
+        // ====================================================================================
+        // Receive
+        // ====================================================================================
+        // before sale
         env::receive::ReceiveEnvironment {
             contract_index: 10,
             slot_time: "2023-05-30T06:00:00Z",
@@ -167,14 +168,7 @@ async fn main() -> Result<()> {
             param_file: Some("p_whitelisted.json"),
             ..Default::default()
         },
-        // env::receive::ReceiveEnvironment {
-        //     contract_index: 10,
-        //     slot_time: "2023-05-30T06:00:00Z",
-        //     invoker: team_ovl,
-        //     entry_point: "setStatus",
-        //     param_file: Some("p_set_status.json"),
-        //     ..Default::default()
-        // },
+        // during sale
         env::receive::ReceiveEnvironment {
             //user top
             contract_index: 3496,
@@ -191,6 +185,14 @@ async fn main() -> Result<()> {
             invoker: user_2,
             entry_point: "transfer", // invoke userDeposit
             param_file: Some("p_transfer_contract2.json"),
+            ..Default::default()
+        },
+        env::receive::ReceiveEnvironment {
+            contract_index: 3496,
+            slot_time: "2023-06-05T12:00:00Z",
+            invoker: team_ovl,
+            entry_point: "balanceOf",
+            param_file: Some("p_balanceof_contract.json"),
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
@@ -238,6 +240,14 @@ async fn main() -> Result<()> {
         },
         env::receive::ReceiveEnvironment {
             contract_index: 10,
+            slot_time: "2023-07-01T06:00:00Z",
+            invoker: team_ovl,
+            entry_point: "view",
+            param_file: None,
+            ..Default::default()
+        },
+        env::receive::ReceiveEnvironment {
+            contract_index: 10,
             slot_time: "2023-06-15T12:00:00Z",
             invoker: proj_admin,
             entry_point: "setTGE",
@@ -262,22 +272,14 @@ async fn main() -> Result<()> {
             param_file: Some("p_transfer_create_pool.json"),
             ..Default::default()
         },
-        // env::receive::ReceiveEnvironment {
-        //     contract_index: 10,
-        //     slot_time: "2023-06-21T12:10:00Z",
-        //     invoker: user_1,
-        //     entry_point: "userClaim",
-        //     param_file: None,
-        //     ..Default::default()
-        // },
-        // env::receive::ReceiveEnvironment {
-        //     contract_index: 1001,
-        //     slot_time: "2023-06-21T12:10:00Z",
-        //     invoker: team_ovl,
-        //     entry_point: "balanceOf",
-        //     param_file: Some("p_balanceof_user1.json"),
-        //     ..Default::default()
-        // },
+        env::receive::ReceiveEnvironment {
+            contract_index: 1001,
+            slot_time: "2023-06-21T12:00:00Z",
+            invoker: team_ovl,
+            entry_point: "balanceOf",
+            param_file: Some("p_balanceof_contract.json"),
+            ..Default::default()
+        },
         env::receive::ReceiveEnvironment {
             contract_index: 10,
             slot_time: "2023-06-24T12:00:00Z",
@@ -399,19 +401,43 @@ async fn main() -> Result<()> {
         },
     ];
 
-    // let amount = Amount::from_micro_ccd(0);
+    let amount = Amount::from_micro_ccd(0);
 
     for env in envs {
-        env.do_call(&chain, env.amount, energy)?;
+        env.do_call(&chain, amount, energy)?;
     }
-
-    log::debug!("###########################################################");
-    log::debug!("View Functions");
-    log::debug!("###########################################");
 
     for env in envs2 {
-        env.do_call(&chain, env.amount, energy)?;
+        env.do_call(&chain, amount, energy)?;
     }
+
+    // =======================================================================
+
+    // let current_state: v1::trie::PersistentState = {
+    //     let f = format!("{}{}", "./p/1/rido/", "state.bin");
+    //     let state_bin = std::fs::File::open(f).context("Could not read state file.")?;
+    //     let mut reader = std::io::BufReader::new(state_bin);
+
+    //     v1::trie::PersistentState::deserialize(&mut reader)
+    //         .context("Could not deserialize the provided state.")?
+    // };
+
+    // let mut loader = v1::trie::Loader::new(&[][..]);
+    // let mut mutable_state = current_state.thaw();
+    // let mut collector = v1::trie::SizeCollector::default();
+    // let frozen = mutable_state.freeze(&mut loader, &mut collector);
+
+    // let mut tree_builder = ptree::TreeBuilder::new("StateRoot".into());
+    // frozen.display_tree(&mut tree_builder, &mut loader);
+    // let tree = tree_builder.build();
+    // println!("{:#?}", tree);
+
+    // let path = Path::new("test");
+    // let mut files = Vec::new();
+    // traverse(path, &mut |e| files.push(e)).unwrap();
+    // for file in files {
+    //     println!("{:?}", file);
+    // }
 
     Ok(())
 }

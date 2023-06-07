@@ -214,7 +214,7 @@ pub fn print_return_value(
         let out = schema
             .to_json_string_pretty(&rv)
             .map_err(|_| anyhow::anyhow!("Could not output return value in JSON"))?;
-        log::debug!("Return value: {}", out);
+        log::info!("Return value: {}", out);
         Ok::<_, anyhow::Error>(())
     } else {
         log::info!(

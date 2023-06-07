@@ -33,7 +33,7 @@ impl InitEnvironment {
         energy: InterpreterEnergy,
     ) -> anyhow::Result<()> {
         let func_name: String = format!("init_{}", mods.contract_name);
-        log::info!("================= Init::{:?} =================", func_name);
+        log::info!("===== Init::{:?} =====", func_name);
 
         // Context
         let init_ctx: context::InitContextOpt = if let Some(context_file) = self.context_file {
@@ -124,7 +124,7 @@ fn check_init_result(
             // println!("{:?}", state);
             print_state(state, loader, true, state_out_file)?;
             print_return_value(return_value, schema_return_value)?;
-            log::info!(
+            log::debug!(
                 "Interpreter energy spent is {}",
                 energy.subtract(remaining_energy.energy)
             )
@@ -137,7 +137,7 @@ fn check_init_result(
             log::info!("Init call rejected with reason {}.", reason);
             log::info!("The following error value was returned:");
             print_error(return_value, schema_error)?;
-            log::info!(
+            log::debug!(
                 "Interpreter energy spent is {}",
                 energy.subtract(remaining_energy.energy)
             )
