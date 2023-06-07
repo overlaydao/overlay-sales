@@ -68,7 +68,7 @@ impl ReceiveEnvironment {
 
         let func_name =
             OwnedReceiveName::new_unchecked(format!("{}.{}", mods.contract_name, self.entry_point));
-        log::info!(">>>>> Receive::{:?} ==========================", func_name);
+        log::info!("=============== Receive::{:?} ===============", func_name);
 
         // Context
         let mut receive_context: context::ReceiveContextV1Opt =
@@ -204,7 +204,7 @@ impl<'a> InvokeEnvironment<'a> {
 
         let func_name =
             OwnedReceiveName::new_unchecked(format!("{}.{}", mods.contract_name, self.entry_point));
-        log::info!("=============== [Invoke::{:?}] ===============", func_name);
+        log::info!(">>>>> [Invoke::{:?}] <<<<<", func_name);
 
         receive_context.common.set_self_address(self.contract_index);
         receive_context.common.set_owner(mods.owner);
