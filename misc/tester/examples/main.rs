@@ -33,7 +33,8 @@ async fn main() -> Result<()> {
     // Chain Context
     let mut modules = std::collections::HashMap::new();
     let mut chain = context::ChainContext { modules };
-
+    let mut balances = std::collections::HashMap::new();
+    let mut balances = context::BalanceContext { balances };
     // ====================================================================================
     // Prepare for chain context - Instantiate
     // ====================================================================================
@@ -49,7 +50,7 @@ async fn main() -> Result<()> {
         CONTRACT_USDC,
         module_file,
         AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
-        "./p/0/usdc/",
+        "./p/0/usdc/".to_string(),
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -72,7 +73,7 @@ async fn main() -> Result<()> {
         CONTRACT_PUB_RIDO_USDC,
         module_file,
         AccountAddress::from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")?,
-        "./p/0/rido_usdc/",
+        "./p/0/rido_usdc/".to_string(),
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -115,7 +116,7 @@ async fn main() -> Result<()> {
     ];
 
     for env in envs {
-        env.do_call(&chain, amount, energy)?;
+        env.do_call(&chain, &mut balances, amount, energy)?;
     }
 
     let envs = vec![
@@ -138,7 +139,7 @@ async fn main() -> Result<()> {
     ];
 
     for env in envs {
-        env.do_call(&chain, amount, energy)?;
+        env.do_call(&chain, &mut balances, amount, energy)?;
     }
 
     let envs = vec![
@@ -161,7 +162,7 @@ async fn main() -> Result<()> {
     ];
 
     for env in envs {
-        env.do_call(&chain, amount, energy)?;
+        env.do_call(&chain, &mut balances, amount, energy)?;
     }
 
     // =======================================================================

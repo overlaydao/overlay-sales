@@ -1,6 +1,6 @@
 use crate::utils;
 use anyhow::anyhow;
-use concordium_base::smart_contracts::WasmModule;
+use concordium_base::{smart_contracts::WasmModule, transactions::cost::A};
 use concordium_contracts_common::schema::VersionedModuleSchema;
 use concordium_rust_sdk::{
     smart_contracts::common::Timestamp,
@@ -21,13 +21,56 @@ use std::{collections::HashMap, str::FromStr};
 pub struct ModuleInfo {
     pub contract_name: &'static str,
     pub owner: AccountAddress,
-    pub data_dir: &'static str,
+    pub data_dir: String,
     pub schema: VersionedModuleSchema,
     pub artifact: std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
 }
 
 pub struct ChainContext {
     pub modules: HashMap<u64, ModuleInfo>,
+}
+
+pub struct BalanceContext {
+    pub balances: HashMap<Address, Amount>,
+}
+
+impl BalanceContext {
+    pub fn faucet(&mut self, to: &str, amount: u64) -> anyhow::Result<()> {
+        let to = Address::from(AccountAddress::from_str(to)?);
+        let amount = Amount::from_micro_ccd(amount);
+
+        let mut to_balance = self.balances.entry(to).or_insert_with(|| Amount::zero());
+        *to_balance += amount;
+        Ok(())
+    }
+
+    pub fn get_contract_balance(&mut self, index: u64) -> anyhow::Result<Option<Amount>> {
+        let addr = Address::from(ContractAddress::new(index, 0));
+        // let balance = self.balances.entry(addr).or_insert_with(|| Amount::zero());
+        let balance = self.balances.get(&addr);
+        if let Some(a) = balance {
+            Ok(Some(*a))
+        } else {
+            Ok(Some(Amount::zero()))
+        }
+    }
+
+    pub fn transfer(&mut self, from: &Address, to: &Address, amount: Amount) -> anyhow::Result<()> {
+        if amount.micro_ccd == 0u64 {
+            return Ok(());
+        };
+
+        let mut from_balance = self.balances.get_mut(from).unwrap();
+        if *from_balance < amount {
+            anyhow::bail!("no module registerd in chain context!");
+        }
+        *from_balance -= amount;
+
+        let mut to_balance = self.balances.entry(*to).or_insert_with(|| Amount::zero());
+        *to_balance += amount;
+
+        Ok(())
+    }
 }
 
 impl ChainContext {
@@ -37,7 +80,7 @@ impl ChainContext {
         contract_name: &'static str,
         module_file: String,
         owner: AccountAddress,
-        data_dir: &'static str,
+        data_dir: String,
         env: crate::env::init::InitEnvironment,
         amount: Amount,
         energy: InterpreterEnergy,

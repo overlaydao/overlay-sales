@@ -33,6 +33,8 @@ async fn main() -> Result<()> {
     let mut modules = std::collections::HashMap::new();
     let mut chain = context::ChainContext { modules };
 
+    let mut balances = std::collections::HashMap::new();
+    let mut balances = context::BalanceContext { balances };
     // ====================================================================================
     // Prepare for chain context - Instantiate
     // ====================================================================================
@@ -43,6 +45,8 @@ async fn main() -> Result<()> {
     let user_2 = "2yxPwev4mVd8yUYUTKWXFR68qBDgqd2mdEg9WErdW6eqRHL9JA";
     let user_3 = "3BeTZDN3FVLyvJinyMMbYr37o5aXThKfVkXXPxUhe6pLz1CMFD";
 
+    let exid = "2";
+
     // USDC
     let pkg = "cis2-bridgeable";
     let module_file = format!(
@@ -51,11 +55,11 @@ async fn main() -> Result<()> {
                 pkg.to_lowercase().replace('-', "_")
             );
     chain.add_instance(
-        3496,
+        INDEX_USDC,
         CONTRACT_USDC,
         module_file,
         AccountAddress::from_str(usdc_owner)?,
-        "./p/2/usdc/",
+        format!("./p/{}/usdc/", exid),
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -74,11 +78,11 @@ async fn main() -> Result<()> {
         pkg.to_lowercase().replace('-', "_")
     );
     chain.add_instance(
-        10,
+        INDEX_PUB_RIDO_USDC,
         CONTRACT_PUB_RIDO_USDC,
         module_file,
         AccountAddress::from_str(team_ovl)?,
-        "./p/2/rido/",
+        format!("./p/{}/rido/", exid),
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -97,11 +101,11 @@ async fn main() -> Result<()> {
         pkg.to_lowercase().replace('-', "_")
     );
     chain.add_instance(
-        1001,
+        INDEX_PROJECT_TOKEN,
         CONTRACT_PROJECT_TOKEN,
         module_file,
         AccountAddress::from_str(proj_admin)?,
-        "./p/2/pjtoken/",
+        format!("./p/{}/pjtoken/", exid),
         env::init::InitEnvironment {
             slot_time: "2023-05-28T06:00:00Z",
             context_file: None,
@@ -117,7 +121,7 @@ async fn main() -> Result<()> {
     // ====================================================================================
     let envs = vec![
         env::receive::ReceiveEnvironment {
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-05-28T06:00:00Z",
             invoker: usdc_owner,
             entry_point: "grantRole",
@@ -125,7 +129,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-05-28T06:00:00Z",
             invoker: usdc_owner,
             entry_point: "deposit",
@@ -133,7 +137,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-05-28T06:00:00Z",
             invoker: usdc_owner,
             entry_point: "deposit",
@@ -141,7 +145,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-05-28T06:00:00Z",
             invoker: usdc_owner,
             entry_point: "deposit",
@@ -149,7 +153,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-05-28T06:00:00Z",
             invoker: proj_admin,
             entry_point: "mint",
@@ -161,7 +165,7 @@ async fn main() -> Result<()> {
         // ====================================================================================
         // before sale
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-05-30T06:00:00Z",
             invoker: team_ovl,
             entry_point: "whitelisting",
@@ -171,7 +175,7 @@ async fn main() -> Result<()> {
         // during sale
         env::receive::ReceiveEnvironment {
             //user top
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-06-01T12:00:00Z",
             invoker: user_1,
             entry_point: "transfer", // invoke userDeposit
@@ -180,7 +184,7 @@ async fn main() -> Result<()> {
         },
         env::receive::ReceiveEnvironment {
             //user second
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-06-02T12:00:00Z",
             invoker: user_2,
             entry_point: "transfer", // invoke userDeposit
@@ -188,16 +192,8 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 3496,
-            slot_time: "2023-06-05T12:00:00Z",
-            invoker: team_ovl,
-            entry_point: "balanceOf",
-            param_file: Some("p_balanceof_contract.json"),
-            ..Default::default()
-        },
-        env::receive::ReceiveEnvironment {
             //user any
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-06-04T12:00:00Z",
             invoker: user_3,
             entry_point: "transfer", // invoke userDeposit
@@ -205,7 +201,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-05T12:01:00Z",
             invoker: team_ovl,
             entry_point: "setFixed",
@@ -215,7 +211,15 @@ async fn main() -> Result<()> {
         // ---------------------------------------
         // Project Claim
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_USDC,
+            slot_time: "2023-06-05T06:00:00Z",
+            invoker: team_ovl,
+            entry_point: "balanceOf",
+            param_file: Some("p_balanceof_contract.json"),
+            ..Default::default()
+        },
+        env::receive::ReceiveEnvironment {
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-10T12:00:00Z",
             invoker: proj_admin,
             entry_point: "projectClaim",
@@ -223,7 +227,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-06-25T12:10:00Z",
             invoker: proj_admin,
             entry_point: "balanceOf",
@@ -231,7 +235,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-15T12:01:00Z",
             invoker: proj_admin,
             entry_point: "setPjtoken",
@@ -239,7 +243,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-07-01T06:00:00Z",
             invoker: team_ovl,
             entry_point: "view",
@@ -247,7 +251,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-15T12:00:00Z",
             invoker: proj_admin,
             entry_point: "setTGE",
@@ -257,7 +261,7 @@ async fn main() -> Result<()> {
         // ---------------------------------------
         // Vesting
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-06-20T06:00:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -265,7 +269,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-06-21T12:00:00Z",
             invoker: proj_admin,
             entry_point: "transfer", // invoke createPool
@@ -273,7 +277,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-06-21T12:00:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -281,7 +285,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-24T12:00:00Z",
             invoker: team_ovl,
             entry_point: "ovlClaim",
@@ -290,7 +294,7 @@ async fn main() -> Result<()> {
         },
         //
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-24T12:00:00Z",
             invoker: user_1,
             entry_point: "userClaim",
@@ -298,7 +302,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-06-24T12:10:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -307,7 +311,7 @@ async fn main() -> Result<()> {
         },
         //
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-25T12:00:00Z",
             invoker: user_1,
             entry_point: "userClaim",
@@ -315,7 +319,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-06-25T12:10:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -324,7 +328,7 @@ async fn main() -> Result<()> {
         },
         //
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-26T12:00:00Z",
             invoker: user_1,
             entry_point: "userClaim",
@@ -332,7 +336,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-06-26T12:10:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -341,7 +345,7 @@ async fn main() -> Result<()> {
         },
         //
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-06-28T12:00:00Z",
             invoker: user_1,
             entry_point: "userClaim",
@@ -349,7 +353,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-06-28T12:10:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -360,7 +364,7 @@ async fn main() -> Result<()> {
 
     let envs2 = vec![
         env::receive::ReceiveEnvironment {
-            contract_index: 1001,
+            contract_index: INDEX_PROJECT_TOKEN,
             slot_time: "2023-07-01T12:10:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -368,7 +372,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-07-01T06:00:00Z",
             invoker: team_ovl,
             entry_point: "view",
@@ -376,7 +380,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-07-01T06:00:00Z",
             invoker: user_1,
             entry_point: "viewWinUnits",
@@ -384,7 +388,31 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 10,
+            contract_index: INDEX_PUB_RIDO_USDC,
+            slot_time: "2023-07-01T06:00:00Z",
+            invoker: team_ovl,
+            entry_point: "setStatus",
+            param_file: Some("p_set_status.json"),
+            ..Default::default()
+        },
+        env::receive::ReceiveEnvironment {
+            contract_index: INDEX_USDC,
+            slot_time: "2023-07-01T06:00:00Z",
+            invoker: team_ovl,
+            entry_point: "balanceOf",
+            param_file: Some("p_balanceof_contract.json"),
+            ..Default::default()
+        },
+        env::receive::ReceiveEnvironment {
+            contract_index: INDEX_PUB_RIDO_USDC,
+            slot_time: "2023-07-01T06:00:00Z",
+            invoker: user_1,
+            entry_point: "userQuit",
+            param_file: None,
+            ..Default::default()
+        },
+        env::receive::ReceiveEnvironment {
+            contract_index: INDEX_PUB_RIDO_USDC,
             slot_time: "2023-07-01T06:00:00Z",
             invoker: team_ovl,
             entry_point: "viewParticipants",
@@ -392,7 +420,7 @@ async fn main() -> Result<()> {
             ..Default::default()
         },
         env::receive::ReceiveEnvironment {
-            contract_index: 3496,
+            contract_index: INDEX_USDC,
             slot_time: "2023-07-01T06:00:00Z",
             invoker: team_ovl,
             entry_point: "balanceOf",
@@ -404,11 +432,11 @@ async fn main() -> Result<()> {
     let amount = Amount::from_micro_ccd(0);
 
     for env in envs {
-        env.do_call(&chain, amount, energy)?;
+        env.do_call(&chain, &mut balances, amount, energy)?;
     }
 
     for env in envs2 {
-        env.do_call(&chain, amount, energy)?;
+        env.do_call(&chain, &mut balances, amount, energy)?;
     }
 
     // =======================================================================

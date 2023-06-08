@@ -233,7 +233,7 @@ pub fn print_state(
 ) -> anyhow::Result<()> {
     let mut collector = v1::trie::SizeCollector::default();
     let frozen = state.freeze(loader, &mut collector);
-    log::info!(
+    log::debug!(
         "The contract will produce {}B of additional state that will be charged for.",
         collector.collect()
     );

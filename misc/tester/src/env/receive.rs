@@ -1,8 +1,11 @@
+use std::str::FromStr;
+
 use crate::context::ReceiveContextV1Opt;
 use crate::context::{self, ModuleInfo};
 use crate::utils::*;
 use anyhow::{bail, ensure, Context};
 use chrono::{TimeZone, Utc};
+use concordium_contracts_common::AccountAddress;
 use concordium_contracts_common::{
     constants, schema::VersionedModuleSchema, Address, Amount, ContractAddress, OwnedParameter,
     OwnedReceiveName, Timestamp,
@@ -58,6 +61,7 @@ impl ReceiveEnvironment {
     pub fn do_call(
         &self,
         chain: &context::ChainContext,
+        balances: &mut context::BalanceContext,
         // arc_art: &std::sync::Arc<Artifact<ProcessedImports, CompiledFunction>>,
         // schema: &VersionedModuleSchema,
         amount: Amount,
@@ -68,7 +72,11 @@ impl ReceiveEnvironment {
 
         let func_name =
             OwnedReceiveName::new_unchecked(format!("{}.{}", mods.contract_name, self.entry_point));
-        log::info!("=============== Receive::{:?} ===============", func_name);
+        log::info!(
+            "=============== Receive::{:?}({:?}) ===============",
+            func_name,
+            self.contract_index
+        );
 
         // Context
         let mut receive_context: context::ReceiveContextV1Opt =
@@ -87,6 +95,7 @@ impl ReceiveEnvironment {
                     self.invoker,
                 )
             };
+        receive_context.common.self_balance = balances.get_contract_balance(self.contract_index)?;
         log::debug!("{:?}", receive_context);
 
         // log::debug!(
@@ -177,6 +186,7 @@ impl ReceiveEnvironment {
         check_receive_result(
             res,
             chain,
+            balances,
             mods,
             &mut loader,
             mutable_state,
@@ -184,16 +194,27 @@ impl ReceiveEnvironment {
             &energy,
             receive_context,
             None,
+            if amount.micro_ccd > 0 {
+                Some((
+                    Address::from(AccountAddress::from_str(self.invoker)?),
+                    Address::from(ContractAddress::new(self.contract_index, 0)),
+                    self.amount,
+                ))
+            } else {
+                None
+            },
         )?;
 
         Ok(())
     }
 }
 
+// For Invoking other contract
 impl<'a> InvokeEnvironment<'a> {
     pub fn do_invoke(
         &self,
         chain: &context::ChainContext,
+        balances: &mut context::BalanceContext,
         mut receive_context: context::ReceiveContextV1Opt,
         data_dir: &str,
         amount: Amount,
@@ -267,6 +288,7 @@ impl<'a> InvokeEnvironment<'a> {
         check_receive_result(
             res,
             chain,
+            balances,
             mods,
             &mut loader,
             mutable_state,
@@ -274,6 +296,7 @@ impl<'a> InvokeEnvironment<'a> {
             &energy,
             receive_context,
             Some(data_dir),
+            None,
         )?;
 
         Ok(())
@@ -285,6 +308,7 @@ impl<'a> InvokeEnvironment<'a> {
 fn check_receive_result(
     res: ReceiveResult<CompiledFunction, ReceiveContextV1Opt>,
     chain: &context::ChainContext,
+    balances: &mut context::BalanceContext,
     mods: &ModuleInfo,
     loader: &mut v1::trie::Loader<&[u8]>,
     mutable_state: MutableState,
@@ -292,6 +316,7 @@ fn check_receive_result(
     energy: &InterpreterEnergy,
     mut receive_context: ReceiveContextV1Opt,
     invoked_from: Option<&str>,
+    transfered: Option<(Address, Address, Amount)>,
 ) -> anyhow::Result<()> {
     let vschema: &VersionedModuleSchema = &mods.schema;
     let (_, schema_return_value, schema_error, schema_event) =
@@ -306,6 +331,9 @@ fn check_receive_result(
         } => {
             log::info!("Receive function <succeeded>.");
             // print_logs(logs);
+            if let Some(t) = transfered {
+                balances.transfer(&t.0, &t.1, t.2);
+            }
 
             if let Some(dir) = invoked_from {
                 log::info!(
@@ -390,7 +418,14 @@ fn check_receive_result(
                         state_out_file: "state.bin",
                         amount,
                     };
-                    x.do_invoke(chain, receive_context, mods.data_dir, amount, energy);
+                    x.do_invoke(
+                        chain,
+                        balances,
+                        receive_context,
+                        mods.data_dir.as_str(),
+                        amount,
+                        energy,
+                    );
                 },
 
                 v1::Interrupt::Upgrade { module_ref } => log::info!(
@@ -421,7 +456,7 @@ fn check_receive_result(
             error,
         } => {
             return Err(error.context(format!(
-                "Execution triggered a runtime error after spending {} interpreter energy.",
+                "[Trap]Execution triggered a runtime error after spending {} interpreter energy.",
                 energy.subtract(remaining_energy)
             )));
         },
