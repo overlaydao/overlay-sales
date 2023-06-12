@@ -11,6 +11,7 @@ use concordium_smart_contract_engine::{
     v1::{self, InitInvocation, InitResult},
     InterpreterEnergy,
 };
+use concordium_std::UnwrapAbort;
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -59,10 +60,15 @@ impl InitEnvironment {
             if let Some(param_file) = self.param_file {
                 let f = format!("{}{}", mods.data_dir, param_file);
                 let parameter_json = get_object_from_json(f.into())?;
-                let schema_parameter = &mods.schema.get_init_param_schema(mods.contract_name)?;
-                schema_parameter
-                    .serial_value_into(&parameter_json, &mut init_param)
-                    .context("Could not generate parameter bytes using schema and JSON.")?;
+                let schema_parameter = &mods.schema.get_init_param_schema(mods.contract_name);
+                if schema_parameter.is_err() {
+                    log::error!("no schema provided for init function!");
+                } else {
+                    let schema_parameter = schema_parameter.as_ref().unwrap();
+                    schema_parameter
+                        .serial_value_into(&parameter_json, &mut init_param)
+                        .context("Could not generate parameter bytes using schema and JSON.")?;
+                }
             }
             OwnedParameter::try_from(init_param).unwrap()
         };
@@ -110,7 +116,7 @@ fn check_init_result(
     state_out_file: &str,
 ) -> anyhow::Result<()> {
     let (_, schema_return_value, schema_error, schema_event) =
-        get_schemas_for_init(vschema, contract_name)?;
+        get_schemas_for_init(vschema, contract_name).unwrap();
 
     match res {
         v1::InitResult::Success {

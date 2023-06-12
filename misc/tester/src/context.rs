@@ -100,6 +100,7 @@ impl ChainContext {
             artifact: arc_art,
         };
         env.do_call(&mod_info, amount, energy)?;
+
         self.modules.insert(index, mod_info);
         Ok(())
     }

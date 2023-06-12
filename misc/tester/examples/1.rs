@@ -403,15 +403,9 @@ async fn main() -> Result<()> {
         },
     ];
 
-    // let amount = Amount::from_micro_ccd(0);
-
     for env in envs {
         env.do_call(&chain, &mut balances, env.amount, energy)?;
     }
-
-    log::debug!("###########################################################");
-    log::debug!("View Functions");
-    log::debug!("###########################################");
 
     for env in envs2 {
         env.do_call(&chain, &mut balances, env.amount, energy)?;

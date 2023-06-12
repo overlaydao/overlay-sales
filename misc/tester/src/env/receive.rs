@@ -15,6 +15,7 @@ use concordium_smart_contract_engine::{
     v1::{self, trie::MutableState, ReceiveResult},
     InterpreterEnergy,
 };
+use concordium_std::UnwrapAbort;
 use concordium_wasm::artifact::CompiledFunction;
 
 #[derive(serde::Deserialize, Debug)]

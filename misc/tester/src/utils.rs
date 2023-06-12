@@ -272,7 +272,8 @@ pub fn get_schemas_for_init<'a>(
                             contract_schema.event(),
                         )
                     } else {
-                        anyhow::bail!("[Schema Error] No entrypoint in the contract!");
+                        (None, None, None, None)
+                        // anyhow::bail!("[Schema Error] No entrypoint in the contract!");
                     }
                 },
                 None => anyhow::bail!("[Schema Error] No contract name in the schema!"),
