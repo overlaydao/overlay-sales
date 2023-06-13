@@ -31,6 +31,7 @@ use concordium_smart_contract_engine::{
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
 use ptree::{print_tree_with, PrintConfig, TreeBuilder};
 use std::{
+    fs::File,
     io::Read,
     path::{Path, PathBuf},
     str::FromStr,
@@ -356,3 +357,41 @@ pub fn get_schemas_for_receive<'a>(
 //         Err(e) => Err(format!("Unable to parse state to json: {:?}", e)),
 //     }
 // }
+
+fn check_diff_files(f1: &mut File, f2: &mut File) -> bool {
+    let mut buff1: &mut [u8] = &mut [0; 1024];
+    let mut buff2: &mut [u8] = &mut [0; 1024];
+
+    loop {
+        match f1.read(buff1) {
+            Err(_) => return false,
+            Ok(f1_read_len) => match f2.read(buff2) {
+                Err(_) => return false,
+                Ok(f2_read_len) => {
+                    if f1_read_len != f2_read_len {
+                        return false;
+                    }
+                    if f1_read_len == 0 {
+                        return true;
+                    }
+                    if &buff1[0..f1_read_len] != &buff2[0..f2_read_len] {
+                        return false;
+                    }
+                },
+            },
+        }
+    }
+}
+
+/// Takes two string filepaths and returns true if the two files are identical and exist.
+pub fn is_same(f1: &str, f2: &str) -> bool {
+    let mut fh1 = File::open(f1);
+    let mut fh2 = File::open(f2);
+
+    fh1.as_mut()
+        .and_then(|file1| {
+            fh2.as_mut()
+                .and_then(|file2| Ok(check_diff_files(file1, file2)))
+        })
+        .unwrap_or(false)
+}

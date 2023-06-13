@@ -1,7 +1,7 @@
 use crate::utils;
 use anyhow::anyhow;
 use concordium_base::{smart_contracts::WasmModule, transactions::cost::A};
-use concordium_contracts_common::schema::VersionedModuleSchema;
+use concordium_contracts_common::{schema::VersionedModuleSchema, ChainMetadata};
 use concordium_rust_sdk::{
     smart_contracts::common::Timestamp,
     types::smart_contracts::concordium_contracts_common::{
@@ -10,10 +10,11 @@ use concordium_rust_sdk::{
     },
 };
 use concordium_smart_contract_engine::{
-    v0,
-    v1::{self, ProcessedImports},
+    v0::{self, HasReceiveContext},
+    v1::{self, ProcessedImports, ReceiveContext},
     ExecResult, InterpreterEnergy,
 };
+use concordium_std::UnwrapAbort;
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
@@ -316,8 +317,38 @@ pub struct ReceiveContextV1Opt {
     entrypoint: Option<OwnedEntrypointName>,
 }
 
+impl From<ReceiveContextV1Opt> for ReceiveContext<Vec<u8>> {
+    fn from(item: ReceiveContextV1Opt) -> Self {
+        let sender_policies: Vec<u8> = {
+            let mut out = Vec::new();
+            out
+        };
+
+        ReceiveContext {
+            entrypoint: item.entrypoint.unwrap(),
+            common: v0::ReceiveContext {
+                metadata: ChainMetadata {
+                    slot_time: item.common.metadata.slot_time.unwrap(),
+                },
+                invoker: item.common.invoker.unwrap(),
+                self_address: item.common.self_address.unwrap(),
+                self_balance: item.common.self_balance.unwrap(),
+                sender: item.common.sender.unwrap(),
+                owner: item.common.owner.unwrap(),
+                sender_policies,
+            },
+        }
+    }
+}
+
 impl ReceiveContextV1Opt {
-    pub fn new(ts: Timestamp, index: u64, owner: Option<AccountAddress>, invoker: &str) -> Self {
+    pub fn new(
+        ts: Timestamp,
+        index: u64,
+        owner: Option<AccountAddress>,
+        invoker: &str,
+        ep: String,
+    ) -> Self {
         let self_address = Some(ContractAddress::new(index, 0));
 
         let (invoker, sender) = if invoker == "" {
@@ -336,7 +367,7 @@ impl ReceiveContextV1Opt {
                 invoker,
                 ..Default::default()
             },
-            ..Default::default()
+            entrypoint: Some(OwnedEntrypointName::new_unchecked(ep)),
         }
     }
 }

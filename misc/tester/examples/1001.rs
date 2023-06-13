@@ -115,38 +115,46 @@ async fn main() -> Result<()> {
     // ====================================================================================
 
     let envs = [
-        env::receive::ReceiveEnvironment {
-            contract_index: index_piggy,
-            slot_time: "2023-05-28T06:00:00Z",
-            invoker: team_ovl,
-            entry_point: "receive",
-            param_file: Some("receive.json"),
-            ..Default::default()
-        },
-        env::receive::ReceiveEnvironment {
-            contract_index: index_piggy,
-            slot_time: "2023-05-28T06:00:00Z",
-            invoker: team_ovl,
-            entry_point: "view",
-            param_file: None,
-            ..Default::default()
-        },
-        env::receive::ReceiveEnvironment {
-            contract_index: index_weather,
-            slot_time: "2023-05-28T06:00:00Z",
-            invoker: team_ovl,
-            entry_point: "get",
-            param_file: Some("get_none.json"),
-            ..Default::default()
-        },
-        env::receive::ReceiveEnvironment {
-            contract_index: index_weather,
-            slot_time: "2023-05-28T06:00:00Z",
-            invoker: team_ovl,
-            entry_point: "set",
-            param_file: Some("set.json"),
-            ..Default::default()
-        },
+        // env::receive::ReceiveEnvironment {
+        //     contract_index: index_piggy,
+        //     slot_time: "2023-05-28T06:00:00Z",
+        //     invoker: team_ovl,
+        //     entry_point: "change",
+        //     param_file: Some("change.json"),
+        //     ..Default::default()
+        // },
+        // env::receive::ReceiveEnvironment {
+        //     contract_index: index_piggy,
+        //     slot_time: "2023-05-28T06:00:00Z",
+        //     invoker: team_ovl,
+        //     entry_point: "view",
+        //     param_file: None,
+        //     ..Default::default()
+        // },
+        // env::receive::ReceiveEnvironment {
+        //     contract_index: index_weather,
+        //     slot_time: "2023-05-28T06:00:00Z",
+        //     invoker: team_ovl,
+        //     entry_point: "view",
+        //     param_file: None,
+        //     ..Default::default()
+        // },
+        // env::receive::ReceiveEnvironment {
+        //     contract_index: index_weather,
+        //     slot_time: "2023-05-28T06:00:00Z",
+        //     invoker: team_ovl,
+        //     entry_point: "get",
+        //     param_file: Some("get_none.json"),
+        //     ..Default::default()
+        // },
+        // env::receive::ReceiveEnvironment {
+        //     contract_index: index_weather,
+        //     slot_time: "2023-05-28T06:00:00Z",
+        //     invoker: team_ovl,
+        //     entry_point: "set",
+        //     param_file: Some("set.json"),
+        //     ..Default::default()
+        // },
         env::receive::ReceiveEnvironment {
             contract_index: index_weather,
             slot_time: "2023-05-28T06:00:00Z",
@@ -169,14 +177,6 @@ async fn main() -> Result<()> {
             invoker: team_ovl,
             entry_point: "view",
             param_file: None,
-            ..Default::default()
-        },
-        env::receive::ReceiveEnvironment {
-            contract_index: index_weather,
-            slot_time: "2023-05-28T06:00:00Z",
-            invoker: team_ovl,
-            entry_point: "get",
-            param_file: Some("get_none.json"),
             ..Default::default()
         },
     ];
