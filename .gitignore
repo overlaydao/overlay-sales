@@ -1,2 +1,6 @@
+# Rust specific ignores
+target/
+!Cargo.lock
+
 # ide
 .idea/

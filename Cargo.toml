@@ -1,0 +1,24 @@
+[workspace.package]
+authors = ["daratao"]
+description = "Concordium smart contract for OVERLAY RIDO platform."
+edition = "2021"
+homepage = "https://overlay.global/"
+license = "OVERLAY all right reserved"
+publish = false
+repository = "https://github.com/overlaydao/overlay-sales"
+rust-version = "1.68.1"
+
+[workspace]
+members = ["ovl-sale-ccd-public", "ovl-sale-usdc-public", "sale-utils"]
+
+[workspace.dependencies]
+concordium-cis2 = "3.0.0"
+sale-utils = { path = "sale-utils" }
+
+[workspace.dependencies.concordium-std]
+default-features = false
+version = "6.1.0"
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
