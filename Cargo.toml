@@ -9,7 +9,12 @@ repository = "https://github.com/overlaydao/overlay-sales"
 rust-version = "1.68.1"
 
 [workspace]
-members = ["ovl-sale-ccd-public", "ovl-sale-usdc-public", "sale-utils"]
+members = [
+    "ovl-sale-ccd-public",
+    "ovl-sale-usdc-public",
+    "sale-utils",
+    "misc/tester",
+]
 
 [workspace.dependencies]
 concordium-cis2 = "3.0.0"

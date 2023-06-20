@@ -1,0 +1,21 @@
+[
+    {
+        "from": {
+            "Account": [
+                "4HuP25JqvP77bYaedygbXCD9YYwuFwWKFT5gkvHY5EC5Lxij3n"
+            ]
+        },
+        "to": {
+            "Contract": [
+                {
+                    "index": 10,
+                    "subindex": 0
+                },
+                "createPool"
+            ]
+        },
+        "amount": "600",
+        "token_id": "",
+        "data": ""
+    }
+]

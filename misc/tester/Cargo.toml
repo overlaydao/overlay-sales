@@ -1,0 +1,46 @@
+[package]
+edition = "2021"
+name = "tester"
+version = "0.1.0"
+
+[dependencies.concordium-std]
+workspace = true
+
+[dependencies.concordium-cis2]
+workspace = true
+features = ["u256_amount"]
+
+[dependencies]
+# concordium-std = "6.2.0"
+# concordium-cis2 = {version = "3.0.0", default-features = false, features = ["u256_amount"]}
+
+anyhow = "1.0.66"
+bs58 = { version = "0.4", features = ["check"] }
+chrono = "0.4.23"
+clap = { version = "4.2.5", features = ["derive"] }
+ed25519-dalek = "=1.0"
+hex = "0.4.3"
+log = "0.4.0"
+ptree = "0.4"
+rand = "0.7.3"
+sale-utils.workspace = true
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.91"
+sha2 = "0.10"
+simplelog = "0.12.0"
+tokio = { version = "1.21", features = ["full"] }
+tonic = { version = "0.8", features = ["tls", "tls-roots"] }
+primitive-types = { version = "0.11", default-features = false }
+concordium-contracts-common = "6.0.0"
+concordium-rust-sdk = "2.4.0"
+concordium-smart-contract-engine = { version = "1.2.0", features = [
+    "display-state",
+] }
+concordium-wasm = "1.1.0"
+concordium_base = "1.2.0"
+concordium-smart-contract-testing = "1.0"
+
+
+# [dependencies.concordium-smart-contract-testing]
+# path = "../../../concordium-smart-contract-tools/concordium-smart-contract-testing"
+# version = "1.0.0"

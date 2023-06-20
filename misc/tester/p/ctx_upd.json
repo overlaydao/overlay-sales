@@ -1,0 +1,18 @@
+{
+  "metadata": {
+      "slotTime": "2023-05-28T07:15:00Z"
+  },
+  "invoker": "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+  "selfAddress": {"index": 0, "subindex": 0},
+  "selfBalance": "0",
+  "sender": {
+      "type": "account",
+      "address": "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1"
+  },
+  "senderPolicies": [{
+      "identityProvider": 1,
+      "createdAt": "202012",
+      "validTo": "202109"
+  }],
+  "owner": "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1"
+}
