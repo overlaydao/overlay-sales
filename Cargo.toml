@@ -14,6 +14,7 @@ members = [
     "ovl-sale-usdc-public",
     "sale-utils",
     "misc/tester",
+    "misc/tester_v2",
 ]
 
 [workspace.dependencies]

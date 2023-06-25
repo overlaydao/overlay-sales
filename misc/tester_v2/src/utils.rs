@@ -1,25 +1,19 @@
 use crate::config::ACCOUNT_ADDRESS_SIZE;
-use crate::context;
+
 use anyhow::{bail, ensure, Context};
 use chrono::{TimeZone, Utc};
-use concordium_base::common::Deserial;
+use concordium_base::{
+    common::Deserial,
+    smart_contracts::{ModuleReference, ModuleSource, WasmModule, WasmVersion},
+};
 use concordium_contracts_common::{
-    schema::{FunctionV2, Type, VersionedModuleSchema},
+    from_bytes,
+    hashes::{HashBytes, ModuleReferenceMarker},
+    schema::{ContractV3, FunctionV2, ModuleV1, ModuleV2, ModuleV3, Type, VersionedModuleSchema},
     AccountAddress, Address, Amount, ContractAddress, Cursor, OwnedParameter, OwnedReceiveName,
+    Timestamp,
 };
-use concordium_rust_sdk::{
-    smart_contracts::common::{
-        from_bytes,
-        schema::{ContractV3, ModuleV1, ModuleV2, ModuleV3},
-        Timestamp,
-    },
-    types::hashes::HashBytes,
-    types::{
-        hashes::ModuleReferenceMarker,
-        smart_contracts::{ModuleReference, ModuleSource, WasmModule, WasmVersion},
-    },
-    v2::{BlockIdentifier, Client, Endpoint},
-};
+// use concordium_rust_sdk::v2::{BlockIdentifier, Client, Endpoint};
 use concordium_smart_contract_engine::{
     v0::{self, HasChainMetadata, HasReceiveContext},
     v1::{
@@ -28,6 +22,7 @@ use concordium_smart_contract_engine::{
     },
     InterpreterEnergy,
 };
+use concordium_smart_contract_testing::ContractEvent;
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
 use ptree::{print_tree_with, PrintConfig, TreeBuilder};
 use std::{
@@ -36,8 +31,6 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-
-use crate::context::ReceiveContextV1Opt;
 
 pub fn init_logger() {
     use simplelog::*;
@@ -62,12 +55,42 @@ pub fn init_logger() {
     .unwrap();
 }
 
-pub fn test_init_context() -> context::InitContextOpt {
-    let dt = chrono::DateTime::parse_from_rfc3339("2023-05-18T00:00:00+09:00").unwrap();
-    let ts = Timestamp::from_timestamp_millis(dt.timestamp_millis() as u64);
-    let addr = account_address_bytes_from_str("3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1")
-        .unwrap();
-    context::InitContextOpt::new(ts, Some(AccountAddress(addr)), None)
+fn check_diff_files(f1: &mut File, f2: &mut File) -> bool {
+    let mut buff1: &mut [u8] = &mut [0; 1024];
+    let mut buff2: &mut [u8] = &mut [0; 1024];
+
+    loop {
+        match f1.read(buff1) {
+            Err(_) => return false,
+            Ok(f1_read_len) => match f2.read(buff2) {
+                Err(_) => return false,
+                Ok(f2_read_len) => {
+                    if f1_read_len != f2_read_len {
+                        return false;
+                    }
+                    if f1_read_len == 0 {
+                        return true;
+                    }
+                    if &buff1[0..f1_read_len] != &buff2[0..f2_read_len] {
+                        return false;
+                    }
+                },
+            },
+        }
+    }
+}
+
+/// Takes two string filepaths and returns true if the two files are identical and exist.
+pub fn is_same(f1: &str, f2: &str) -> bool {
+    let mut fh1 = File::open(f1);
+    let mut fh2 = File::open(f2);
+
+    fh1.as_mut()
+        .and_then(|file1| {
+            fh2.as_mut()
+                .and_then(|file2| Ok(check_diff_files(file1, file2)))
+        })
+        .unwrap_or(false)
 }
 
 pub fn get_wasm_module_from_file<P: AsRef<Path> + ToString>(
@@ -95,23 +118,6 @@ pub fn get_wasm_module_from_file<P: AsRef<Path> + ToString>(
         "[Parse Error]The specified length does not match the size of the provided data."
     );
     let wasm_module = WasmModule { version, source };
-
-    Ok(wasm_module)
-}
-
-pub async fn get_wasm_module_from_node(
-    endpoint: Endpoint,
-    module_str: &str,
-) -> anyhow::Result<WasmModule> {
-    let mut client = Client::new(endpoint)
-        .await
-        .context("Cannot connect to the node.")?;
-    let mod_ref: ModuleReference =
-        HashBytes::<ModuleReferenceMarker>::from_str(module_str).unwrap();
-    let res = client
-        .get_module_source(&mod_ref, &BlockIdentifier::LastFinal)
-        .await?;
-    let wasm_module: WasmModule = res.response;
 
     Ok(wasm_module)
 }
@@ -252,6 +258,35 @@ pub fn print_state(
     Ok(())
 }
 
+pub fn print_logs(logs: &Vec<ContractEvent>, schema_event: Option<&Type>) {
+    for (i, item) in logs.iter().enumerate() {
+        match schema_event {
+            Some(schema) => {
+                let out = schema
+                    .to_json_string_pretty(item.as_ref())
+                    .map_err(|_| anyhow::anyhow!("Could not output event value in JSON"));
+                match out {
+                    Ok(event_json) => {
+                        log::info!("The JSON representation of event {} is:\n{}", i, event_json);
+                    },
+                    Err(error) => {
+                        log::error!(
+                            "Event schema had an error. {:?}. The raw value of event {} \
+                                 is:\n{:?}",
+                            error,
+                            i,
+                            item
+                        );
+                    },
+                }
+            },
+            None => {
+                log::error!("The raw value of event {} is:\n{:?}", i, item);
+            },
+        }
+    }
+}
+
 pub fn get_schemas_for_init<'a>(
     vschema: &'a VersionedModuleSchema,
     contract_name: &str,
@@ -328,42 +363,4 @@ pub fn get_schemas_for_receive<'a>(
         schema_error,
         schema_event,
     ))
-}
-
-fn check_diff_files(f1: &mut File, f2: &mut File) -> bool {
-    let mut buff1: &mut [u8] = &mut [0; 1024];
-    let mut buff2: &mut [u8] = &mut [0; 1024];
-
-    loop {
-        match f1.read(buff1) {
-            Err(_) => return false,
-            Ok(f1_read_len) => match f2.read(buff2) {
-                Err(_) => return false,
-                Ok(f2_read_len) => {
-                    if f1_read_len != f2_read_len {
-                        return false;
-                    }
-                    if f1_read_len == 0 {
-                        return true;
-                    }
-                    if &buff1[0..f1_read_len] != &buff2[0..f2_read_len] {
-                        return false;
-                    }
-                },
-            },
-        }
-    }
-}
-
-/// Takes two string filepaths and returns true if the two files are identical and exist.
-pub fn is_same(f1: &str, f2: &str) -> bool {
-    let mut fh1 = File::open(f1);
-    let mut fh2 = File::open(f2);
-
-    fh1.as_mut()
-        .and_then(|file1| {
-            fh2.as_mut()
-                .and_then(|file2| Ok(check_diff_files(file1, file2)))
-        })
-        .unwrap_or(false)
 }

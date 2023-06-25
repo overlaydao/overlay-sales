@@ -1,0 +1,95 @@
+{
+    "wl": [
+        {
+            "user": {
+                "Account": [
+                    "2xBpaHottqhwFZURMZW4uZfWhg5fNFPhozzS1hYYbAHzJ5CCyn"
+                ]
+            },
+            "prior": {
+                "TOP": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "2xBpaHottqhwFZURMZW4uZhARa2bYNRuQTPpGdqmRxtZ8CNo9U"
+                ]
+            },
+            "prior": {
+                "TOP": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "2y57FyMyqAfY7X1SuSWJ5VNh4T7xPKkGjXkx2Uk8hUokJYYtbA"
+                ]
+            },
+            "prior": {
+                "TOP": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "2xBpaHottqhwFZURMZW4uZeRRn3kqxwg3be4RFV2UTfNnMvjzk"
+                ]
+            },
+            "prior": {
+                "TOP": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "2yWkbp92JL9LYVmxgP1QfTETNxs3nZUz1wM2N9RD73gEhvRKVF"
+                ]
+            },
+            "prior": {
+                "TOP": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "2xdTv8awN1BjgYEw8W1BVXWsVjnZRJYwfifaDmFHcuLfH1QMrq"
+                ]
+            },
+            "prior": {
+                "TOP": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "2y57FyMyqAfY7X1SuSWJ5VP8CzxJWu443vRXtc8MQovryNSKA7"
+                ]
+            },
+            "prior": {
+                "TOP": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "4HuP25JqvP77bYaedygbXCD9YYwuFwWKFT5gkvHY5EC5Lxij3n"
+                ]
+            },
+            "prior": {
+                "SECOND": []
+            }
+        },
+        {
+            "user": {
+                "Account": [
+                    "2yxPwev4mVd8yUYUTKWXFR68qBDgqd2mdEg9WErdW6eqRHL9JA"
+                ]
+            },
+            "prior": {
+                "SECOND": []
+            }
+        }
+    ],
+    "ready": true
+}

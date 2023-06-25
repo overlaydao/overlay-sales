@@ -1,0 +1,21 @@
+[
+  {
+    "from": {
+      "Account": [
+        "2yxPwev4mVd8yUYUTKWXFR68qBDgqd2mdEg9WErdW6eqRHL9JA"
+      ]
+    },
+    "to": {
+      "Contract": [
+        {
+          "index": 0,
+          "subindex": 0
+        },
+        "userDeposit"
+      ]
+    },
+    "amount": "100000",
+    "token_id": "",
+    "data": ""
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "slotTime": "2023-05-28T06:00:00Z"
+  },
+  "initOrigin": "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+  "senderPolicies": [
+    {
+      "identityProvider": 1,
+      "createdAt": "202012",
+      "validTo": "202109"
+    }
+  ]
+}

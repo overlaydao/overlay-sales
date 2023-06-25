@@ -1,0 +1,20 @@
+{
+    "metadata": {
+        "slotTime": "2023-05-28T06:10:00Z"
+    },
+    "invoker": "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1",
+    "selfAddress": {
+        "index": 0,
+        "subindex": 0
+    },
+    "selfBalance": "0",
+    "sender": {
+        "type": "contract",
+        "address": {
+            "index": 3496,
+            "subindex": 0
+        }
+    },
+    "senderPolicies": [],
+    "owner": "3jfAuU1c4kPE6GkpfYw4KcgvJngkgpFrD9SkDBgFW3aHmVB5r1"
+}
