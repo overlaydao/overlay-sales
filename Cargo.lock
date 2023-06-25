@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "concordium-smart-contract-testing"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2601,7 +2601,7 @@ dependencies = [
  "concordium-contracts-common 7.0.0",
  "concordium-rust-sdk",
  "concordium-smart-contract-engine 2.0.0",
- "concordium-smart-contract-testing 2.0.0",
+ "concordium-smart-contract-testing 2.0.1",
  "concordium-std",
  "concordium-wasm 2.0.0",
  "concordium_base 2.0.0",
