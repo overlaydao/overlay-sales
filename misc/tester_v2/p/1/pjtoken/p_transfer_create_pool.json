@@ -8,7 +8,7 @@
         "to": {
             "Contract": [
                 {
-                    "index": 10,
+                    "index": 0,
                     "subindex": 0
                 },
                 "createPool"

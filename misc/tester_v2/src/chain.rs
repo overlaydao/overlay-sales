@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::config;
 use crate::utils;
 use anyhow::Context;
@@ -5,6 +7,9 @@ use concordium_base::smart_contracts::WasmModule;
 use concordium_contracts_common::schema::VersionedModuleSchema;
 use concordium_contracts_common::Timestamp;
 use concordium_smart_contract_testing::*;
+
+// pub type ModuleSchemas<'a> = HashMap<OwnedContractName, &'a VersionedModuleSchema>;
+pub type ModuleSchemas<'a> = HashMap<String, &'a VersionedModuleSchema>;
 
 pub fn generate_chain(accounts: Vec<(AccountAddress, Amount)>, slot_time: Option<&str>) -> Chain {
     let mut chain = if let Some(t) = slot_time {
@@ -53,9 +58,10 @@ pub struct UpdateEnvironment<'a> {
     pub entry_point: &'a str,
     pub param_file: Option<&'a str>,
     pub slot_time: &'a str,
+    pub comment: Option<&'a str>,
 }
 
-// context
+// ------------------------
 pub struct ModuleInfo {
     pub module: ModuleDeploySuccess,
     pub schema: VersionedModuleSchema,
@@ -117,24 +123,24 @@ impl ModuleInfo {
             data_dir: env.data_dir,
             it,
             contract_name: env.contract_name,
-            schema: &self.schema,
         })
     }
 }
 
-pub struct InstanceInfo<'a> {
+pub struct InstanceInfo {
     pub data_dir: String,
     pub it: ContractInitSuccess,
     pub contract_name: &'static str,
-    pub schema: &'a VersionedModuleSchema,
 }
 
-impl<'a> InstanceInfo<'a> {
-    pub fn update(&self, env: UpdateEnvironment, chain: &mut Chain) -> anyhow::Result<()> {
+impl InstanceInfo {
+    pub fn update(
+        &self,
+        env: UpdateEnvironment,
+        schemas: &ModuleSchemas,
+        chain: &mut Chain,
+    ) -> anyhow::Result<()> {
         chain.set_slot_time(env.slot_time);
-
-        let (_, schema_return_value, schema_error, schema_event) =
-            utils::get_schemas_for_receive(self.schema, self.contract_name, env.entry_point)?;
 
         let receive_name =
             OwnedReceiveName::new_unchecked(format!("{}.{}", self.contract_name, env.entry_point));
@@ -144,14 +150,19 @@ impl<'a> InstanceInfo<'a> {
             receive_name,
         );
 
+        if env.comment.is_some() {
+            log::info!(">>> {}", env.comment.unwrap());
+        }
+
+        let schema = schemas.get(self.contract_name).unwrap();
+
         let parameter = {
             let mut params = Vec::new();
             if let Some(file) = env.param_file {
                 let f = format!("{}{}", self.data_dir, file);
                 let parameter_json = utils::get_object_from_json(f.into())?;
-                let schema_parameter = &self
-                    .schema
-                    .get_receive_param_schema(self.contract_name, env.entry_point)?;
+                let schema_parameter =
+                    &schema.get_receive_param_schema(self.contract_name, env.entry_point)?;
                 log::debug!("param > {:?}", parameter_json);
                 log::debug!("schema > {:?}", schema_parameter);
                 schema_parameter
@@ -173,7 +184,7 @@ impl<'a> InstanceInfo<'a> {
                 message: parameter,
             },
         )?;
-        // log::info!("{:?}", update);
+        // log::info!("{:#?}", update);
 
         for v in update.trace_elements {
             match v {
@@ -183,13 +194,45 @@ impl<'a> InstanceInfo<'a> {
                     energy_used,
                 } => match trace_element {
                     ContractTraceElement::Updated { data } => {
+                        log::info!("[Updated] {:?}, cost:{:?}", data.address, energy_used);
+
+                        let contract = chain.get_contract(data.address).unwrap();
+                        let name = contract.contract_name.as_contract_name().to_string(); //init_xxx
+                        let schema = schemas.get(&name[5..]).unwrap();
+
+                        let (_, _, _, schema_event) = utils::get_schemas_for_receive(
+                            schema,
+                            &name[5..],
+                            entrypoint.to_string().as_str(),
+                        )?;
+
                         utils::print_logs(&data.events, schema_event);
+                    },
+                    ContractTraceElement::Interrupted { address, events } => {
+                        log::info!("[Interrupted] {:?}", address);
+                        let contract = chain.get_contract(address).unwrap();
+                        let name = contract.contract_name.as_contract_name().to_string(); //init_xxx
+                        let schema = schemas.get(&name[5..]).unwrap();
+
+                        let (_, _, _, schema_event) = utils::get_schemas_for_receive(
+                            schema,
+                            &name[5..],
+                            entrypoint.to_string().as_str(),
+                        )?;
+
+                        utils::print_logs(&events, schema_event);
+                    },
+                    ContractTraceElement::Resumed { address, success } => {
+                        log::info!("[Resumed] {:?}: {:?}", address, success);
                     },
                     _ => {},
                 },
                 _ => {},
             }
         }
+
+        let (_, schema_return_value, _, _) =
+            utils::get_schemas_for_receive(schema, self.contract_name, env.entry_point)?;
         utils::print_return_value(update.return_value, schema_return_value)?;
 
         Ok(())

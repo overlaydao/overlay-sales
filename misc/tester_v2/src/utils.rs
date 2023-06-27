@@ -10,8 +10,8 @@ use concordium_contracts_common::{
     from_bytes,
     hashes::{HashBytes, ModuleReferenceMarker},
     schema::{ContractV3, FunctionV2, ModuleV1, ModuleV2, ModuleV3, Type, VersionedModuleSchema},
-    AccountAddress, Address, Amount, ContractAddress, Cursor, OwnedParameter, OwnedReceiveName,
-    Timestamp,
+    AccountAddress, Address, Amount, ContractAddress, Cursor, EntrypointName, OwnedEntrypointName,
+    OwnedParameter, OwnedReceiveName, Timestamp,
 };
 // use concordium_rust_sdk::v2::{BlockIdentifier, Client, Endpoint};
 use concordium_smart_contract_engine::{
@@ -25,8 +25,8 @@ use concordium_smart_contract_engine::{
 use concordium_smart_contract_testing::ContractEvent;
 use concordium_wasm::artifact::{Artifact, CompiledFunction};
 use ptree::{print_tree_with, PrintConfig, TreeBuilder};
+use std::fs::{create_dir_all, read_to_string, File};
 use std::{
-    fs::File,
     io::Read,
     path::{Path, PathBuf},
     str::FromStr,
@@ -34,6 +34,9 @@ use std::{
 
 pub fn init_logger() {
     use simplelog::*;
+
+    let output_dir = Path::new("logs");
+    create_dir_all(&output_dir);
 
     CombinedLogger::init(vec![
         TermLogger::new(
@@ -325,6 +328,47 @@ pub fn get_schemas_for_init<'a>(
         schema_event,
     ))
 }
+
+// pub fn get_schemas_for_receive<'a, S: Into<OwnedEntrypointName>>(
+//     vschema: &'a VersionedModuleSchema,
+//     contract_name: &str,
+//     func_name: S,
+// ) -> anyhow::Result<(
+//     Option<&'a Type>,
+//     Option<&'a Type>,
+//     Option<&'a Type>,
+//     Option<&'a Type>,
+// )> {
+//     let (schema_parameter, schema_return_value, schema_error, schema_event) =
+//         if let VersionedModuleSchema::V3(module_schema) = vschema {
+//             match module_schema.contracts.get(contract_name) {
+//                 Some(contract_schema) => {
+//                     if let Some(func_schema) =
+//                         contract_schema.receive.get(&func_name.into().to_string())
+//                     {
+//                         (
+//                             func_schema.parameter(),
+//                             func_schema.return_value(),
+//                             func_schema.error(),
+//                             contract_schema.event(),
+//                         )
+//                     } else {
+//                         anyhow::bail!("[Schema Error] No entrypoint in the contract!");
+//                     }
+//                 },
+//                 None => anyhow::bail!("[Schema Error] No contract name in the schema!"),
+//             }
+//         } else {
+//             anyhow::bail!("[Schema Error] Currently only support Schema Version3!");
+//         };
+
+//     Ok((
+//         schema_parameter,
+//         schema_return_value,
+//         schema_error,
+//         schema_event,
+//     ))
+// }
 
 pub fn get_schemas_for_receive<'a>(
     vschema: &'a VersionedModuleSchema,
